@@ -155,6 +155,7 @@ final class Preferences: ObservableObject {
     @Stored("weatherUseFahrenheit") var weatherUseFahrenheit = false
     @Stored("capsLockHUD") var capsLockHUD = true
     @Stored("lyricsEnabled") var lyricsEnabled = true
+    @Stored("lyricsShown") var lyricsShown = false        // remembers the Music-tab toggle
     @Stored("downloadsEnabled") var downloadsEnabled = false      // opt-in: needs Downloads folder access
     @Stored("privacyIndicator") var privacyIndicator = true
     @Stored("callIsland") var callIsland = true

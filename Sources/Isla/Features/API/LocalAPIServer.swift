@@ -177,6 +177,7 @@ final class LocalAPIServer: ObservableObject {
         case "privacy":
             return ["ok": true, "mic": PrivacyMonitor.shared.micInUse, "camera": PrivacyMonitor.shared.cameraInUse, "inCall": PrivacyMonitor.shared.inCall, "micMuted": AudioDeviceManager.shared.micMuted]
         case "lyrics":
+            if let show = req["show"] as? Bool { Preferences.shared.lyricsShown = show }
             let l = LyricsService.shared
             return ["ok": true, "synced": l.lines.count, "current": l.currentIndex(at: music.elapsed).map { l.lines[$0].text } as Any]
         case "calc":

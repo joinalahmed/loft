@@ -4,7 +4,6 @@ struct MusicTabView: View {
     @ObservedObject var music = MusicManager.shared
     @ObservedObject var prefs = Preferences.shared
     @ObservedObject var audio = AudioDeviceManager.shared
-    @State private var showLyrics = false
     @Environment(\.islandTint) private var tint
 
     var body: some View {
@@ -21,14 +20,14 @@ struct MusicTabView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             MarqueeText(music.title, font: .system(size: 15, weight: .bold))
                             MarqueeText(music.artist, font: .system(size: 12, weight: .medium), color: .secondary)
-                            if !music.album.isEmpty && !showLyrics {
+                            if !music.album.isEmpty && !prefs.lyricsShown {
                                 Text(music.album).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
                             }
                         }
                         Spacer()
                         HStack(spacing: 6) {
                             if prefs.lyricsEnabled {
-                                SmallIconButton(symbol: showLyrics ? "quote.bubble.fill" : "quote.bubble", size: 11, help: "Lyrics", tint: showLyrics ? tint : .white) { showLyrics.toggle() }
+                                SmallIconButton(symbol: prefs.lyricsShown ? "quote.bubble.fill" : "quote.bubble", size: 11, help: "Lyrics", tint: prefs.lyricsShown ? tint : .white) { prefs.lyricsShown.toggle() }
                             }
                             Menu {
                                 ForEach(audio.outputDevices) { d in
@@ -48,7 +47,7 @@ struct MusicTabView: View {
                             }
                         }
                     }
-                    if showLyrics { LyricsView() } else { Spacer(minLength: 0) }
+                    if prefs.lyricsShown { LyricsView() } else { Spacer(minLength: 0) }
                     PlaybackScrubber(tint: tint)
                     HStack(spacing: 18) {
                         Spacer()
