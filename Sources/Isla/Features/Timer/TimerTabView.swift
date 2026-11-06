@@ -34,8 +34,12 @@ struct TimerTabView: View {
                             Stepper("Focus \(prefs.pomodoroWorkMinutes) min", value: $prefs.pomodoroWorkMinutes, in: 5...90, step: 5)
                             Stepper("Break \(prefs.pomodoroBreakMinutes) min", value: $prefs.pomodoroBreakMinutes, in: 1...30)
                         }.font(.system(size: 11))
-                        Text("\(timer.sessionsToday) focus session\(timer.sessionsToday == 1 ? "" : "s") completed today")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                        HStack(alignment: .bottom, spacing: 10) {
+                            Text("\(timer.sessionsToday) focus session\(timer.sessionsToday == 1 ? "" : "s") completed today")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                            Spacer()
+                            SessionHistoryChart(history: timer.sessionHistory())
+                        }
                     case 1:
                         HStack(spacing: 6) {
                             ForEach([5, 10, 15, 25, 45, 60], id: \.self) { m in
@@ -76,4 +80,25 @@ struct TimerTabView: View {
         }
     }
     private var startTitle: String { picker == 0 ? "Start Focus" : picker == 1 ? "Start Timer" : "Start" }
+}
+
+
+/// Seven small bars, one per day, so a streak is visible at a glance.
+struct SessionHistoryChart: View {
+    let history: [(date: Date, count: Int)]
+    var body: some View {
+        let peak = max(1, history.map(\.count).max() ?? 1)
+        HStack(alignment: .bottom, spacing: 4) {
+            ForEach(Array(history.enumerated()), id: \.offset) { i, day in
+                VStack(spacing: 2) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(i == history.count - 1 ? Color.orange : Color.orange.opacity(0.45))
+                        .frame(width: 10, height: max(2, 22 * CGFloat(day.count) / CGFloat(peak)))
+                    Text(day.date, format: .dateTime.weekday(.narrow)).font(.system(size: 8, weight: .medium)).foregroundStyle(.secondary)
+                }
+                .help("\(day.count) session\(day.count == 1 ? "" : "s")")
+            }
+        }
+        .frame(height: 34, alignment: .bottom)
+    }
 }

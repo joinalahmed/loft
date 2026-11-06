@@ -23,8 +23,17 @@ final class TimerManager: ObservableObject {
 
     private init() {}
 
-    static var dayKey: String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date())
+    static var dayKey: String { dayKey(for: Date()) }
+    static func dayKey(for date: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: date)
+    }
+
+    /// Completed focus sessions for the last `days` days, oldest first.
+    func sessionHistory(days: Int = 7) -> [(date: Date, count: Int)] {
+        (0..<days).reversed().map { back in
+            let d = Calendar.current.date(byAdding: .day, value: -back, to: Date())!
+            return (d, back == 0 ? sessionsToday : UserDefaults.standard.integer(forKey: "pomodoroSessions.\(Self.dayKey(for: d))"))
+        }
     }
 
     var remaining: TimeInterval {
