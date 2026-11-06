@@ -30,7 +30,7 @@ final class SettingsWindowController {
         if let tab { selection.tab = tab }
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
-                             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
             w.title = "Isla Settings"
             w.identifier = NSUserInterfaceItemIdentifier("isla.settings")
             w.appearance = NSAppearance(named: .darkAqua)   // matches the island; avoids vibrancy-only text

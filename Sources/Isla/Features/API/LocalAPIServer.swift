@@ -162,7 +162,7 @@ final class LocalAPIServer: ObservableObject {
             let n = Int(req["limit"] as? Double ?? 10)
             return ["ok": true, "items": ClipboardManager.shared.items.prefix(n).map { ["kind": $0.kind.rawValue, "text": $0.kind == .image ? "" : $0.text, "date": ISO8601DateFormatter().string(from: $0.date), "pinned": $0.pinned] }]
         case "shelf":
-            if let path = req["add"] as? String { ShelfManager.shared.add(URL(fileURLWithPath: path)) }
+            if let path = req["add"] as? String, FileManager.default.fileExists(atPath: path) { ShelfManager.shared.add(URL(fileURLWithPath: path)) }
             return ["ok": true, "items": ShelfManager.shared.items.map(\.url.path)]
         case "volume":
             if let v = req["value"] as? Double { VolumeMonitor.shared.setVolume(Float(v)); vm.show(.volume(v, muted: v == 0)) }
@@ -192,6 +192,18 @@ final class LocalAPIServer: ObservableObject {
             if req["close"] as? Bool == true { SettingsWindowController.shared.close() }
             else { SettingsWindowController.shared.show(tab: SettingsTab(rawValue: req["tab"] as? String ?? "")) }
             return ["ok": true]
+        case "debug":
+            let settings = NSApp.windows.first { $0.identifier?.rawValue == "isla.settings" }
+            var hit = "none"
+            if let s = settings, let cv = s.contentView {
+                let pt = CGPoint(x: cv.bounds.midX + 100, y: cv.bounds.midY)
+                hit = String(describing: type(of: cv.hitTest(pt) as Any))
+            }
+            return ["ok": true, "appActive": NSApp.isActive, "keyWindow": NSApp.keyWindow?.identifier?.rawValue ?? String(describing: NSApp.keyWindow.map { type(of: $0) }),
+                    "notchFrame": NSStringFromRect(NSApp.windows.first { $0 is NotchWindow }?.frame ?? .zero),
+                    "settingsVisible": settings?.isVisible ?? false, "settingsKey": settings?.isKeyWindow ?? false,
+                    "settingsFrame": settings.map { NSStringFromRect($0.frame) } ?? "", "settingsHit": hit,
+                    "windows": NSApp.windows.map { "\(type(of: $0)) lvl=\($0.level.rawValue) vis=\($0.isVisible)" }]
         case "tab":
             if let t = PanelTab(rawValue: req["name"] as? String ?? "") { vm.tab = t }
             return ["ok": true, "tab": vm.tab.rawValue]

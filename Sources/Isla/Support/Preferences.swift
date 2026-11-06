@@ -161,7 +161,7 @@ final class Preferences: ObservableObject {
     @Stored("screenshotToShelf") var screenshotToShelf = true
     @Stored("screenshotToClipboard") var screenshotToClipboard = true
     @Stored("screenshotSaveToDesktop") var screenshotSaveToDesktop = true
-    @Stored("watchDesktopScreenshots") var watchDesktopScreenshots = true
+    @Stored("watchDesktopScreenshots") var watchDesktopScreenshots = false   // opt-in: needs Desktop folder access
 
     // Keep awake
     @Stored("keepAwakeDefaultMinutes") var keepAwakeDefaultMinutes = 0   // 0 = until turned off

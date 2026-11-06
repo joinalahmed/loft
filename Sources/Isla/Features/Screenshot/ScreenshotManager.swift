@@ -87,24 +87,41 @@ final class ScreenshotManager: ObservableObject {
 
     // MARK: Desktop watcher (native ⌘⇧3/4/5 screenshots → shelf)
 
+    private static let ioQueue = DispatchQueue(label: "isla.desktop-watch", qos: .utility)
+
+    /// Touching ~/Desktop triggers the macOS "access your Desktop folder" prompt and the kernel
+    /// blocks the call until it is answered, so everything here runs off the main thread.
     private func startWatching() {
         guard watcher == nil, prefs.shelfEnabled else { return }
-        knownDesktop = Set((try? FileManager.default.contentsOfDirectory(atPath: desktop.path)) ?? [])
-        watchedFD = open(desktop.path, O_EVTONLY)
-        guard watchedFD >= 0 else { return }
-        let src = DispatchSource.makeFileSystemObjectSource(fileDescriptor: watchedFD, eventMask: [.write], queue: .main)
-        src.setEventHandler { [weak self] in self?.desktopChanged() }
-        src.setCancelHandler { [fd = watchedFD] in close(fd) }
-        src.resume()
-        watcher = src
+        let desktop = self.desktop
+        Self.ioQueue.async { [weak self] in
+            let names = Set((try? FileManager.default.contentsOfDirectory(atPath: desktop.path)) ?? [])
+            let fd = open(desktop.path, O_EVTONLY)
+            guard fd >= 0 else { return }
+            let src = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write], queue: Self.ioQueue)
+            src.setEventHandler { [weak self] in self?.desktopChanged() }
+            src.setCancelHandler { close(fd) }
+            Task { @MainActor in
+                guard let self, self.watcher == nil else { src.cancel(); return }
+                self.knownDesktop = names
+                self.watchedFD = fd
+                self.watcher = src
+                src.resume()
+            }
+        }
     }
 
     private func stopWatching() {
         watcher?.cancel(); watcher = nil; watchedFD = -1
     }
 
-    private func desktopChanged() {
+    nonisolated private func desktopChanged() {
+        let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
         let names = Set((try? FileManager.default.contentsOfDirectory(atPath: desktop.path)) ?? [])
+        Task { @MainActor in self.handleDesktopNames(names) }
+    }
+
+    private func handleDesktopNames(_ names: Set<String>) {
         let added = names.subtracting(knownDesktop)
         knownDesktop = names
         for name in added where !selfMade.contains(name) {

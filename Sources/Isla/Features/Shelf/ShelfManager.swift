@@ -48,14 +48,22 @@ final class ShelfManager: ObservableObject {
     }
 
     /// Drops entries whose files were deleted or moved since they were shelved.
+    /// File checks run off the main thread: protected folders can block on a permission prompt.
     func prune() {
-        let before = items.count
-        items.removeAll { !FileManager.default.fileExists(atPath: $0.url.path) }
-        if items.count != before { save() }
+        let paths = items.map(\.url.path)
+        Task.detached(priority: .utility) { [weak self] in
+            let gone = Set(paths.filter { !FileManager.default.fileExists(atPath: $0) })
+            guard !gone.isEmpty else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.items.removeAll { gone.contains($0.url.path) }
+                self.save()
+            }
+        }
     }
 
     func add(_ url: URL) {
-        guard FileManager.default.fileExists(atPath: url.path), !items.contains(where: { $0.url == url }) else { return }
+        guard !items.contains(where: { $0.url == url }) else { return }
         items.insert(ShelfItem(url: url), at: 0)
         save()
     }
@@ -95,7 +103,8 @@ final class ShelfManager: ObservableObject {
 
     private func load() {
         guard let data = try? Data(contentsOf: store), let paths = try? JSONDecoder().decode([String].self, from: data) else { return }
-        items = paths.map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }.map { ShelfItem(url: $0) }
+        items = paths.map { ShelfItem(url: URL(fileURLWithPath: $0)) }
+        prune()
     }
 
     private func save() {
