@@ -31,6 +31,10 @@ struct CommandPaletteView: View {
             PaletteAction(title: "Keep awake for 30 minutes", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 30) },
             PaletteAction(title: "Keep awake for 1 hour", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 60) },
             PaletteAction(title: "Keep awake for 2 hours", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 120) },
+            PaletteAction(title: AudioDeviceManager.shared.micMuted ? "Unmute microphone" : "Mute microphone", symbol: "mic.slash.fill", keywords: "mic audio call") { AudioDeviceManager.shared.toggleMicMute() },
+            PaletteAction(title: "Pick a colour from the screen", symbol: "eyedropper.halffull", keywords: "color picker hex") { ToolsManager.shared.pickColor() },
+            PaletteAction(title: "Copy text from screen (OCR)", symbol: "text.viewfinder", keywords: "ocr recognize capture") { ToolsManager.shared.captureText() },
+            PaletteAction(title: "Eject all external drives", symbol: "eject.fill", keywords: "disk volume usb") { SystemStats.shared.ejectAll() },
             PaletteAction(title: "Screenshot: region", symbol: "camera.viewfinder", keywords: "capture screen") { ScreenshotManager.shared.capture(.region) },
             PaletteAction(title: "Screenshot: window", symbol: "macwindow", keywords: "capture screen") { ScreenshotManager.shared.capture(.window) },
             PaletteAction(title: "Screenshot: full screen", symbol: "rectangle.dashed", keywords: "capture screen") { ScreenshotManager.shared.capture(.full) },
@@ -53,7 +57,21 @@ struct CommandPaletteView: View {
     private var filtered: [PaletteAction] {
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return actions }
-        return actions.filter { fuzzy($0.title.lowercased(), q) || $0.keywords.contains(q) }
+        var list = actions.filter { fuzzy($0.title.lowercased(), q) || $0.keywords.contains(q) }
+        let raw = query.trimmingCharacters(in: .whitespaces)
+        if let result = ToolsManager.evaluateMath(raw) {
+            list.insert(PaletteAction(title: "= \(result)", symbol: "equal.circle.fill", keywords: "") {
+                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(result, forType: .string)
+                NotchViewModel.shared.show(message: IslandMessage(title: result, subtitle: "Copied", symbol: "equal.circle.fill"), duration: 1.5)
+            }, at: 0)
+        }
+        if let url = ToolsManager.searchURL(raw) {
+            list.append(PaletteAction(title: "Search the web for “\(raw)”", symbol: "magnifyingglass", keywords: "") { NSWorkspace.shared.open(url) })
+        }
+        if raw.contains("."), !raw.contains(" "), let url = URL(string: raw.hasPrefix("http") ? raw : "https://\(raw)"), url.host != nil {
+            list.insert(PaletteAction(title: "Open \(url.host ?? raw)", symbol: "safari", keywords: "") { NSWorkspace.shared.open(url) }, at: 0)
+        }
+        return list
     }
 
     var body: some View {

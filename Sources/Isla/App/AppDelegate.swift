@@ -33,9 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.applyPreferences() }
             .store(in: &cancellables)
 
-        vm.$isHidden.sink { [weak self] hidden in
-            self?.window?.ignoresMouseEvents = hidden
+        vm.$isHidden.combineLatest(vm.$suppressed).sink { [weak self] hidden, suppressed in
+            self?.window?.ignoresMouseEvents = hidden || suppressed
         }.store(in: &cancellables)
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
+            ws.publisher(for: name).sink { [weak self] _ in self?.updateFullscreenSuppression() }.store(in: &cancellables)
+        }
+        fullscreenTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in Task { @MainActor in self?.updateFullscreenSuppression() } }
+        fullscreenTimer?.tolerance = 1
 
         if !prefs.didFinishOnboarding {
             prefs.didFinishOnboarding = true
@@ -90,11 +96,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func observePanelState() {
+        // `$state` fires from willSet, i.e. *before* the value changes. Resizing the window with
+        // display:true at that moment forces a synchronous SwiftUI layout that still sees
+        // `.closed`, and the pending invalidation is consumed, so the island never visibly opened.
+        // Grow without a synchronous display and let the next run-loop turn render the open state.
         vm.$state.removeDuplicates().sink { [weak self] state in
             guard let self, let window = self.window, let screen = window.screen ?? NSScreen.preferredNotchScreen else { return }
             self.shrinkTask?.cancel()
             if state == .open {
-                window.setFrame(self.windowFrame(on: screen, expanded: true), display: true)   // grow before the animation starts
+                // Still inside willSet here: defer so the hosting view lays out with `.open`.
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.vm.state == .open else { return }
+                    window.setFrame(self.windowFrame(on: screen, expanded: true), display: true)
+                }
             } else {
                 self.shrinkTask = Task { @MainActor [weak self] in
                     try? await Task.sleep(for: .milliseconds(600))                           // after the close animation
@@ -105,12 +119,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
     }
 
+    private var fullscreenTimer: Timer?
+
+    /// With "hide in full screen" on, the island disappears while the frontmost app has a
+    /// window covering the whole notch screen (videos, games, presentations). Uses only
+    /// window bounds from CGWindowList, which needs no Screen Recording permission.
+    private func updateFullscreenSuppression() {
+        guard prefs.hideInFullscreen else { if vm.suppressed { vm.suppressed = false }; return }
+        guard let front = NSWorkspace.shared.frontmostApplication, front != .current, let screen = window?.screen ?? NSScreen.preferredNotchScreen else { return }
+        let pid = front.processIdentifier
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        // CG coordinates are top-left based; convert the screen frame.
+        let target = CGRect(x: screen.frame.minX, y: primaryHeight - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let full = list.contains { w in
+            guard (w[kCGWindowOwnerPID as String] as? pid_t) == pid, (w[kCGWindowLayer as String] as? Int) == 0,
+                  let b = w[kCGWindowBounds as String] as? [String: CGFloat] else { return false }
+            let r = CGRect(x: b["X"] ?? 0, y: b["Y"] ?? 0, width: b["Width"] ?? 0, height: b["Height"] ?? 0)
+            return r.width >= target.width - 2 && r.height >= target.height - 2 && abs(r.minX - target.minX) < 2
+        }
+        if full != vm.suppressed {
+            vm.suppressed = full
+            if full, vm.state == .open { vm.close() }
+        }
+    }
+
     private func applyPreferences() {
         repositionWindow()
         window?.applySharing(hidden: prefs.hideFromScreenCapture)
         LocalAPIServer.shared.applyPreferences()
         MediaKeyInterceptor.shared.applyPreferences()
         ScreenshotManager.shared.applyPreferences()
+        DownloadMonitor.shared.applyPreferences()
         LaunchAtLogin.apply(prefs.launchAtLogin)
     }
 
@@ -129,6 +169,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = ShelfManager.shared
         _ = ScreenshotManager.shared
         _ = CalendarManager.shared
+        _ = AudioDeviceManager.shared
+        PrivacyMonitor.shared.start()
+        DownloadMonitor.shared.applyPreferences()
+        if prefs.remindersEnabled { _ = RemindersManager.shared }
     }
 
     // MARK: Event monitors

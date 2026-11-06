@@ -17,19 +17,25 @@ by a script. macOS 14+, Apple silicon and Intel.
 - Timer: progress ring and remaining time while a countdown or Pomodoro runs
 - Screenshots: thumbnail island when a capture lands (yours or native ⌘⇧3/4/5)
 - Messages from scripts: title, subtitle, icon and progress via the local API or `isla://` URLs
+- Privacy dots: orange while the microphone is live, green while a camera is on; during a call the pill shows a timer and a one-tap mic mute
+- Downloads: live progress for Safari / Chrome / Firefox downloads, then a Reveal island (opt-in)
+- Approval requests: `ask` from the local API puts Allow / Deny buttons in the pill (Claude Code hook included)
 - Keep-awake indicator, optional clock
 
 **Expanded panel (hover, click, or ⌃⌥N)**
 | Tab | Contents |
 |---|---|
 | Home | music card, up-next event with Join, keep-awake status, screenshot buttons, focus timer, weather, latest clipboard item |
-| Music | artwork, scrubber, ±15 s, prev/play/next, source app |
-| Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal; screenshots land here automatically |
+| Music | artwork, scrubber, ±15 s, prev/play/next, source app, time-synced lyrics (LRCLIB), audio-output switcher |
+| Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal; convert / resize / OCR images, zip anything; screenshots land here automatically |
 | Clipboard | searchable history with pins, colours, links, images, files; double-click pastes |
 | Timer | Pomodoro with sessions-per-day, countdown presets, drift-free stopwatch |
 | Calendar | today's events from every synced account (iCloud, Google, Outlook, CalDAV), Join buttons, meeting-alert preview |
+| Reminders | overdue / today / later from every Reminders list, check off, add with a due date |
 | Notes | one autosaved quick note |
-| System | CPU, memory, disk, battery gauges; network rate, cycles, uptime |
+| Apps | running apps (switch, hide, quit) and a type-to-launch grid of /Applications (optional) |
+| Stocks | tickers of your choice with day sparkline, from Yahoo Finance (optional) |
+| System | CPU, memory, disk, battery gauges; network rate, Wi-Fi signal / band / link rate, external drives with Eject, cycles, uptime |
 | Mirror | camera check before a call (never recorded) |
 | Weather | current + 5 days from Open-Meteo, city-based, no location permission |
 
@@ -46,8 +52,13 @@ by a script. macOS 14+, Apple silicon and Intel.
 - **Calendar sync**: anything in System Settings → Internet Accounts shows up; refreshes on
   every EventKit change plus every 5 minutes.
 
-Plus a **command palette** (⌘K inside the panel, ⌃⌥K anywhere), a **menu bar item**,
-a **settings window** (⌘,), **launch at login**, and **hide from screen capture**.
+- **Tools**: screen colour picker (hex copied, ⌃⌥P), copy-text-from-screen OCR (⌃⌥O), eject all
+  drives, mic mute (⌃⌥⇧M), battery low / critical / full alerts with your thresholds.
+
+Plus a **command palette** (⌘K inside the panel, ⌃⌥K anywhere) that also does arithmetic,
+opens URLs and searches the web, a **menu bar item** that can show the next meeting,
+a **settings window** (⌘,), **launch at login**, **hide while an app is full screen**, and
+**hide from screen capture**.
 
 ## Build and run
 
@@ -77,6 +88,10 @@ System Settings. Sign with a Developer ID to avoid that.
 | ⌃⌥S | shelf tab |
 | ⌃⌥A | toggle keep awake |
 | ⌃⌥M | join the next meeting |
+| ⌃⌥⇧M | mute / unmute the microphone |
+| ⌃⌥P | pick a colour from the screen |
+| ⌃⌥O | copy text from a screen region (OCR) |
+| ⌃⌥L | app launcher |
 | ⌃⌥⇧3 / 4 / 5 | screenshot: full screen / region / window |
 | inside the panel | ⌘1–9 tabs · ← → cycle · ⌘K palette · esc close |
 
@@ -104,13 +119,34 @@ echo "{\"token\":\"$T\",\"command\":\"timer\",\"action\":\"countdown\",\"minutes
 ```
 
 Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting
-clipboard shelf volume brightness settings snapshot`. `keepawake` takes `minutes`;
+clipboard shelf volume brightness settings snapshot ask mic audio colorpicker ocr eject
+reminders privacy lyrics calc`. `keepawake` takes `minutes`;
 `screenshot` takes `mode` (region|window|full); `meeting` takes `action` (test|dismiss|join)
 or returns the next event. A request with a `title` and no `command` shows a
 message island. `snapshot` renders the island (or `"window":"settings"`) to a PNG, which
 is how the screenshots in `docs/` were taken without screen-recording permission.
 
-A Claude Code / shell hook is one line:
+`ask` blocks until the user taps a button in the pill (or the timeout passes) and replies
+`{"answer":"Allow","approved":true}`:
+
+```sh
+echo "{\"token\":\"$T\",\"command\":\"ask\",\"title\":\"Deploy to prod?\",\"options\":[\"Deploy\",\"Cancel\"],\"timeout\":60}" | python3 -c 'import socket,sys; s=socket.create_connection(("127.0.0.1",9999)); s.sendall(sys.stdin.buffer.read()); print(s.recv(4096).decode())'
+```
+
+**Claude Code hooks** live in `scripts/claude-code/`: `isla-notify.sh` shows Stop /
+Notification events as islands, `isla-approve.sh` turns `PermissionRequest` into an
+Allow / Deny prompt in the notch (no answer within two minutes falls back to the terminal
+prompt). Add them to `~/.claude/settings.json`:
+
+```json
+"hooks": {
+  "Stop": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-notify.sh" }] }],
+  "Notification": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-notify.sh" }] }],
+  "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-approve.sh", "timeout": 130 }] }]
+}
+```
+
+A shell hook is one line:
 
 ```sh
 # ~/.zshrc — announce long commands in the notch

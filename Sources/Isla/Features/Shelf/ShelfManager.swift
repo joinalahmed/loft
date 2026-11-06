@@ -1,4 +1,5 @@
 import AppKit
+import Vision
 import SwiftUI
 import Combine
 import UniformTypeIdentifiers
@@ -93,6 +94,78 @@ final class ShelfManager: ObservableObject {
         vm.pinnedOpen = true
         service.perform(withItems: selection.map(\.url))
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { vm.pinnedOpen = false }
+    }
+
+    // MARK: File actions (all run off-main; results land back on the shelf)
+
+    func convert(_ item: ShelfItem, to type: UTType) {
+        let src = item.url, dir = tempDir
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let ext = type.preferredFilenameExtension ?? "png"
+            let out = dir.appendingPathComponent(src.deletingPathExtension().lastPathComponent + "." + ext)
+            guard let dest = CGImageDestinationCreateWithURL(out as CFURL, type.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, cg, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+            guard CGImageDestinationFinalize(dest) else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Converted to \(ext.uppercased())", subtitle: out.lastPathComponent, symbol: "arrow.triangle.2.circlepath", tint: .green), duration: 2) }
+        }
+    }
+
+    func resize(_ item: ShelfItem, scale: CGFloat? = nil, maxSide: CGFloat? = nil) {
+        let src = item.url, dir = tempDir
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let w = CGFloat(cg.width), h = CGFloat(cg.height)
+            let factor = scale ?? min(1, (maxSide ?? max(w, h)) / max(w, h))
+            let size = CGSize(width: (w * factor).rounded(), height: (h * factor).rounded())
+            guard let ctx = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+            ctx.interpolationQuality = .high
+            ctx.draw(cg, in: CGRect(origin: .zero, size: size))
+            guard let outCG = ctx.makeImage() else { return }
+            let ext = src.pathExtension.lowercased() == "jpg" || src.pathExtension.lowercased() == "jpeg" ? "jpg" : "png"
+            let out = dir.appendingPathComponent(src.deletingPathExtension().lastPathComponent + " \(Int(size.width))x\(Int(size.height))." + ext)
+            guard let dest = CGImageDestinationCreateWithURL(out as CFURL, (ext == "jpg" ? UTType.jpeg : UTType.png).identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, outCG, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+            guard CGImageDestinationFinalize(dest) else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Resized to \(Int(size.width))×\(Int(size.height))", subtitle: out.lastPathComponent, symbol: "arrow.down.right.and.arrow.up.left", tint: .green), duration: 2) }
+        }
+    }
+
+    func ocr(_ item: ShelfItem) {
+        let src = item.url
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let req = VNRecognizeTextRequest(); req.recognitionLevel = .accurate; req.usesLanguageCorrection = true
+            try? VNImageRequestHandler(cgImage: cg).perform([req])
+            let lines = (req.results ?? []).sorted { $0.boundingBox.minY > $1.boundingBox.minY }.compactMap { $0.topCandidates(1).first?.string }
+            await MainActor.run {
+                if lines.isEmpty { NotchViewModel.shared.show(message: IslandMessage(title: "No text found", symbol: "text.viewfinder", tint: .orange), duration: 2); return }
+                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                NotchViewModel.shared.show(message: IslandMessage(title: "Copied \(lines.count) line\(lines.count == 1 ? "" : "s")", subtitle: lines.first, symbol: "text.viewfinder", tint: .green), duration: 3)
+            }
+        }
+    }
+
+    func zip(_ selection: [ShelfItem]) {
+        guard let first = selection.first else { return }
+        let name = selection.count == 1 ? first.url.deletingPathExtension().lastPathComponent : "Archive"
+        let out = tempDir.appendingPathComponent(name + ".zip")
+        let paths = selection.map(\.url.path)
+        Task.detached {
+            try? FileManager.default.removeItem(at: out)
+            let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent"] + (paths.count == 1 ? [paths[0], out.path] : [])
+            if paths.count > 1 {
+                // ditto zips a single directory; stage multiple items in a temp folder first.
+                let stage = FileManager.default.temporaryDirectory.appendingPathComponent("isla-zip-\(UUID().uuidString)/\(name)")
+                try? FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
+                for path in paths { try? FileManager.default.copyItem(atPath: path, toPath: stage.appendingPathComponent((path as NSString).lastPathComponent).path) }
+                p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", stage.path, out.path]
+            }
+            try? p.run(); p.waitUntilExit()
+            guard p.terminationStatus == 0 else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Zipped", subtitle: out.lastPathComponent, symbol: "doc.zipper", tint: .green), duration: 2) }
+        }
     }
 
     func copyToClipboard(_ selection: [ShelfItem]) {

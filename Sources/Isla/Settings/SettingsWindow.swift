@@ -41,8 +41,17 @@ final class SettingsWindowController {
             w.center()
             window = w
         }
+        // LSUIElement apps are not "frontmost", so a plain makeKey can leave the window
+        // visible but unfocused. Activate first (the deprecated flag still works for
+        // self-activation from a menu/hotkey), then order front and verify once.
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let w = self?.window, w.isVisible, !w.isKeyWindow else { return }
+            NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
+            w.makeKeyAndOrderFront(nil)
+        }
     }
 
     func close() { window?.close() }
@@ -111,6 +120,8 @@ struct GeneralSettings: View {
     @ObservedObject var prefs = Preferences.shared
     var body: some View {
         SettingsSection(title: "Behavior") {
+            Toggle("Hide the island while an app is full screen", isOn: $prefs.hideInFullscreen)
+            Toggle("Show the next meeting in the menu bar", isOn: $prefs.menuBarNextMeeting)
             Toggle("Open when hovering the notch", isOn: $prefs.openOnHover)
             HStack {
                 Text("Hover delay"); Slider(value: $prefs.hoverDelay, in: 0...1, step: 0.05).frame(width: 220)
@@ -156,7 +167,10 @@ struct FeatureSettings: View {
             Toggle("Clipboard history", isOn: $prefs.clipboardEnabled)
             Toggle("Timer & Pomodoro", isOn: $prefs.timerEnabled)
             Toggle("Calendar", isOn: $prefs.calendarEnabled)
+            Toggle("Reminders", isOn: $prefs.remindersEnabled)
             Toggle("Quick notes", isOn: $prefs.notesEnabled)
+            Toggle("App launcher", isOn: $prefs.launcherEnabled)
+            Toggle("Stocks", isOn: $prefs.stocksEnabled)
             Toggle("System stats", isOn: $prefs.systemEnabled)
             Toggle("Camera mirror", isOn: $prefs.mirrorEnabled)
             Toggle("Weather", isOn: $prefs.weatherEnabled)
@@ -188,6 +202,24 @@ struct FeatureSettings: View {
         }
         SettingsSection(title: "Battery") {
             Toggle("Show charger and low-battery islands", isOn: $prefs.batteryAlerts)
+            Stepper("Low battery warning at \(prefs.batteryLowLevel)%", value: $prefs.batteryLowLevel, in: 5...50, step: 5)
+            Stepper("Critical warning at \(prefs.batteryCriticalLevel)%", value: $prefs.batteryCriticalLevel, in: 1...30)
+            Toggle("Tell me when the battery is fully charged", isOn: $prefs.batteryFullAlert)
+        }
+        SettingsSection(title: "Privacy & calls", footer: "Dots appear in the pill while the microphone (orange) or camera (green) is in use, like iPhone. During a call the pill shows a timer and a one-tap mic mute.") {
+            Toggle("Show mic / camera indicator", isOn: $prefs.privacyIndicator)
+            Toggle("Call island with mute button", isOn: $prefs.callIsland)
+        }
+        SettingsSection(title: "Downloads", footer: "Watches ~/Downloads for in-progress browser downloads (Safari, Chrome, Firefox) and shows progress in the pill; finished files are added to the shelf. macOS asks for Downloads-folder access the first time.") {
+            Toggle("Show download progress", isOn: $prefs.downloadsEnabled)
+        }
+        SettingsSection(title: "Stocks", footer: "Comma-separated tickers, quotes from Yahoo Finance.") {
+            HStack { Text("Symbols"); TextField("AAPL, MSFT", text: Binding(get: { prefs.stockSymbols.joined(separator: ", ") }, set: { prefs.stockSymbols = $0.uppercased().components(separatedBy: CharacterSet(charactersIn: ", ")).filter { !$0.isEmpty } })).frame(width: 260).onSubmit { StocksService.shared.refresh(force: true) } }
+        }
+        SettingsSection(title: "Command palette") {
+            Picker("Web search engine", selection: $prefs.searchEngine) {
+                Text("Google").tag("google"); Text("DuckDuckGo").tag("duckduckgo"); Text("Bing").tag("bing"); Text("Perplexity").tag("perplexity")
+            }.frame(width: 300)
         }
     }
 }
@@ -204,6 +236,9 @@ struct MusicSettings: View {
         SettingsSection(title: "HUDs", footer: "Replacing the system HUD needs Accessibility access: Isla intercepts the volume and brightness keys and applies them itself, so macOS never draws its own overlay.") {
             Toggle("Show volume and brightness changes in the notch", isOn: $prefs.hudEnabled)
             Toggle("Caps Lock indicator (needs Accessibility)", isOn: $prefs.capsLockHUD)
+        }
+        SettingsSection(title: "Lyrics", footer: "Time-synced lyrics from LRCLIB, a free community database. The track title, artist and duration are sent to lrclib.net.") {
+            Toggle("Show lyrics button in the Music tab", isOn: $prefs.lyricsEnabled)
             Toggle("Replace the system HUD (hide macOS overlay)", isOn: $prefs.hudReplacement)
                 .onChange(of: prefs.hudReplacement) { _, on in if on && !AXIsProcessTrusted() { MediaKeyInterceptor.requestAccessibility() } }
             if prefs.hudReplacement && !AXIsProcessTrusted() {

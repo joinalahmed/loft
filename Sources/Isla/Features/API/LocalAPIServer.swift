@@ -70,10 +70,10 @@ final class LocalAPIServer: ObservableObject {
                 if let data { buf.append(data) }
                 while let nl = buf.firstIndex(of: 0x0A) {
                     let line = buf[buf.startIndex..<nl]; buf.removeSubrange(buf.startIndex...nl)
-                    if !line.isEmpty { self.respond(conn, self.handle(Data(line))) }
+                    if !line.isEmpty { self.dispatch(conn, Data(line)) }
                 }
                 if complete || error != nil {
-                    if !buf.isEmpty { self.respond(conn, self.handle(buf)) }
+                    if !buf.isEmpty { self.dispatch(conn, buf) }
                     conn.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in conn.cancel() })
                 } else { self.receive(conn, buffer: buf) }
             }
@@ -84,6 +84,23 @@ final class LocalAPIServer: ObservableObject {
         guard var data = try? JSONSerialization.data(withJSONObject: obj) else { return }
         data.append(0x0A)
         conn.send(content: data, completion: .contentProcessed { _ in })
+    }
+
+    /// Commands that wait on the user (`ask`) reply later; everything else is synchronous.
+    private func dispatch(_ conn: NWConnection, _ data: Data) {
+        if let req = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           req["token"] as? String == Preferences.shared.localAPIToken, req["command"] as? String == "ask" {
+            let options = (req["options"] as? [String])?.filter { !$0.isEmpty }.map { String($0.prefix(16)) } ?? ["Allow", "Deny"]
+            let timeout = min(600, max(5, req["timeout"] as? Double ?? 120))
+            let request = ApprovalRequest(title: String((req["title"] as? String ?? "Approve?").prefix(80)),
+                                          subtitle: (req["subtitle"] as? String).map { String($0.prefix(200)) },
+                                          symbol: req["symbol"] as? String, options: Array(options.prefix(3))) { [weak self] answer in
+                self?.respond(conn, ["ok": true, "answer": answer as Any, "approved": answer != nil && answer == options.first])
+            }
+            NotchViewModel.shared.ask(request, timeout: timeout)
+            return
+        }
+        respond(conn, handle(data))
     }
 
     // MARK: Commands
@@ -142,6 +159,28 @@ final class LocalAPIServer: ObservableObject {
             if let on = req["on"] as? Bool { on ? KeepAwakeManager.shared.acquire(minutes: minutes) : KeepAwakeManager.shared.release() }
             else if minutes > 0 { KeepAwakeManager.shared.acquire(minutes: minutes) } else { KeepAwakeManager.shared.toggle() }
             return ["ok": true, "active": KeepAwakeManager.shared.isActive, "status": KeepAwakeManager.shared.statusText]
+        case "mic":
+            if let on = req["muted"] as? Bool { AudioDeviceManager.shared.setMicMuted(on) } else { AudioDeviceManager.shared.toggleMicMute() }
+            return ["ok": true, "muted": AudioDeviceManager.shared.micMuted]
+        case "audio":
+            let devices = AudioDeviceManager.shared.outputDevices
+            if let name = req["output"] as? String, let d = devices.first(where: { $0.name.localizedCaseInsensitiveContains(name) }) { AudioDeviceManager.shared.setDefaultOutput(d) }
+            return ["ok": true, "outputs": devices.map(\.name), "current": devices.first { $0.id == AudioDeviceManager.shared.defaultOutputID }?.name ?? ""]
+        case "colorpicker": ToolsManager.shared.pickColor(); return ["ok": true]
+        case "ocr": ToolsManager.shared.captureText(); return ["ok": true]
+        case "eject": SystemStats.shared.ejectAll(); return ["ok": true, "volumes": SystemStats.shared.volumes.map(\.name)]
+        case "reminders":
+            let r = RemindersManager.shared
+            if let title = req["add"] as? String { r.add(title, dueToday: req["today"] as? Bool ?? false) }
+            return ["ok": true, "authorized": r.authorized, "count": r.reminders.count,
+                    "items": r.reminders.prefix(20).map { ["title": $0.title ?? "", "due": $0.dueDateComponents?.date.map { ISO8601DateFormatter().string(from: $0) } as Any, "list": $0.calendar.title] }]
+        case "privacy":
+            return ["ok": true, "mic": PrivacyMonitor.shared.micInUse, "camera": PrivacyMonitor.shared.cameraInUse, "inCall": PrivacyMonitor.shared.inCall, "micMuted": AudioDeviceManager.shared.micMuted]
+        case "lyrics":
+            let l = LyricsService.shared
+            return ["ok": true, "synced": l.lines.count, "current": l.currentIndex(at: music.elapsed).map { l.lines[$0].text } as Any]
+        case "calc":
+            return ["ok": true, "result": ToolsManager.evaluateMath(req["expression"] as? String ?? "") as Any]
         case "screenshot":
             let mode = ScreenshotManager.Mode(rawValue: req["mode"] as? String ?? "region") ?? .region
             ScreenshotManager.shared.capture(mode)
@@ -178,16 +217,24 @@ final class LocalAPIServer: ObservableObject {
                   let window = NSApp.windows.first(where: { wantSettings ? $0.identifier?.rawValue == "isla.settings" : wantMeeting ? ($0.contentView is NSHostingView<MeetingAlertView>) : $0 is NotchWindow }), let view = window.contentView else {
                 return ["ok": false, "error": "no window"]
             }
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return ["ok": false, "error": "no rep"] }
-            view.cacheDisplay(in: view.bounds, to: rep)
+            view.layoutSubtreeIfNeeded()
             let composed = NSImage(size: view.bounds.size)
             composed.lockFocus()
             NSColor(calibratedWhite: 0.82, alpha: 1).setFill(); view.bounds.fill()
-            rep.draw(in: view.bounds)
+            if req["mode"] as? String == "layer", let layer = view.layer, let ctx = NSGraphicsContext.current?.cgContext {
+                // What is actually composited on screen (layer tree), as opposed to a fresh draw pass.
+                ctx.saveGState(); ctx.translateBy(x: 0, y: view.bounds.height); ctx.scaleBy(x: 1, y: -1)
+                if !view.isFlipped { ctx.translateBy(x: 0, y: view.bounds.height); ctx.scaleBy(x: 1, y: -1) }
+                layer.presentation()?.render(in: ctx) ?? layer.render(in: ctx)
+                ctx.restoreGState()
+            } else if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: rep)
+                rep.draw(in: view.bounds)
+            }
             composed.unlockFocus()
             guard let tiff = composed.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return ["ok": false] }
             try? png.write(to: URL(fileURLWithPath: path))
-            return ["ok": true, "path": path, "width": view.bounds.width, "height": view.bounds.height]
+            return ["ok": true, "path": path, "width": view.bounds.width, "height": view.bounds.height, "state": vm.state == .open ? "open" : "closed", "viewFrame": NSStringFromRect(view.frame)]
         case "settings":
             if req["close"] as? Bool == true { SettingsWindowController.shared.close() }
             else { SettingsWindowController.shared.show(tab: SettingsTab(rawValue: req["tab"] as? String ?? "")) }

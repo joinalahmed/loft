@@ -2,6 +2,9 @@ import SwiftUI
 
 struct MusicTabView: View {
     @ObservedObject var music = MusicManager.shared
+    @ObservedObject var prefs = Preferences.shared
+    @ObservedObject var audio = AudioDeviceManager.shared
+    @State private var showLyrics = false
     @Environment(\.islandTint) private var tint
 
     var body: some View {
@@ -14,20 +17,38 @@ struct MusicTabView: View {
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack {
+                    HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
                             MarqueeText(music.title, font: .system(size: 15, weight: .bold))
                             MarqueeText(music.artist, font: .system(size: 12, weight: .medium), color: .secondary)
-                            if !music.album.isEmpty {
+                            if !music.album.isEmpty && !showLyrics {
                                 Text(music.album).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
                             }
                         }
                         Spacer()
-                        if let icon = music.sourceIcon {
-                            Image(nsImage: icon).resizable().frame(width: 22, height: 22).help(music.sourceName)
+                        HStack(spacing: 6) {
+                            if prefs.lyricsEnabled {
+                                SmallIconButton(symbol: showLyrics ? "quote.bubble.fill" : "quote.bubble", size: 11, help: "Lyrics", tint: showLyrics ? tint : .white) { showLyrics.toggle() }
+                            }
+                            Menu {
+                                ForEach(audio.outputDevices) { d in
+                                    Button { audio.setDefaultOutput(d) } label: {
+                                        Label(d.name, systemImage: d.symbol)
+                                        if d.id == audio.defaultOutputID { Image(systemName: "checkmark") }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: audio.outputDevices.first { $0.id == audio.defaultOutputID }?.symbol ?? "speaker.wave.2")
+                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.75)).frame(width: 24, height: 24)
+                            }
+                            .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 24).help("Audio output")
+                            .onAppear { audio.refresh() }
+                            if let icon = music.sourceIcon {
+                                Image(nsImage: icon).resizable().frame(width: 22, height: 22).help(music.sourceName)
+                            }
                         }
                     }
-                    Spacer(minLength: 0)
+                    if showLyrics { LyricsView() } else { Spacer(minLength: 0) }
                     PlaybackScrubber(tint: tint)
                     HStack(spacing: 18) {
                         Spacer()

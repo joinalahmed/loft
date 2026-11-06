@@ -22,7 +22,24 @@ struct SystemTabView: View {
                     HStack(spacing: 14) {
                         Label(SystemStats.bytes(stats.netDown, perSecond: true), systemImage: "arrow.down").foregroundStyle(.cyan)
                         Label(SystemStats.bytes(stats.netUp, perSecond: true), systemImage: "arrow.up").foregroundStyle(.pink)
+                        if let rssi = stats.wifiRSSI {
+                            Label("\(rssi) dBm" + (stats.wifiBand.map { " · \($0)" } ?? "") + (stats.wifiRate.map { String(format: " · %.0f Mbps", $0) } ?? ""), systemImage: "wifi")
+                                .foregroundStyle(rssi > -60 ? .green : rssi > -75 ? .yellow : .red)
+                        }
                     }.font(.system(size: 11, weight: .medium, design: .rounded)).monospacedDigit()
+                }
+                if !stats.volumes.isEmpty {
+                    Card(padding: 8) {
+                        HStack(spacing: 8) {
+                            ForEach(stats.volumes) { v in
+                                HStack(spacing: 4) {
+                                    Image(systemName: "externaldrive.fill").foregroundStyle(.secondary)
+                                    Text(v.name).font(.system(size: 11, weight: .medium)).lineLimit(1)
+                                    Button { stats.eject(v) } label: { Image(systemName: "eject.fill").font(.system(size: 10)) }.buttonStyle(.plain).help("Eject \(v.name)")
+                                }
+                            }
+                        }
+                    }
                 }
                 Card(padding: 8) {
                     HStack(spacing: 14) {

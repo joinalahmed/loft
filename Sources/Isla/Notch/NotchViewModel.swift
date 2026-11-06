@@ -13,11 +13,24 @@ struct Transient: Identifiable, Equatable {
         case capsLock(Bool)
         case battery(level: Int, charging: Bool, pluggedIn: Bool, low: Bool)
         case message(IslandMessage)
+        case ask(ApprovalRequest)
     }
     let id = UUID()
     let kind: Kind
     let duration: TimeInterval
     static func == (a: Transient, b: Transient) -> Bool { a.id == b.id }
+}
+
+/// A question shown in the pill with buttons; used by the local API `ask` command
+/// (e.g. Claude Code permission prompts) so the answer never leaves the notch.
+struct ApprovalRequest: Equatable, Identifiable {
+    let id = UUID()
+    var title: String
+    var subtitle: String?
+    var symbol: String?
+    var options: [String]          // first option is the affirmative / default
+    var reply: (String?) -> Void   // nil when dismissed or timed out
+    static func == (a: ApprovalRequest, b: ApprovalRequest) -> Bool { a.id == b.id }
 }
 
 struct IslandMessage: Equatable, Identifiable {
@@ -42,6 +55,9 @@ final class NotchViewModel: ObservableObject {
     @Published var metrics = NotchMetrics(hasNotch: true, closedSize: CGSize(width: 222, height: 38), menuBarHeight: 39)
     @Published private(set) var transient: Transient?
     @Published var isHidden = false
+    /// Set while the frontmost app is full screen and the "hide in fullscreen" preference is on.
+    @Published var suppressed = false
+    var effectivelyHidden: Bool { isHidden || suppressed }
     @Published var paletteVisible = false
     @Published var isDragTargeted = false
     @Published var pinnedOpen = false   // e.g. while a sharing sheet is up
@@ -136,6 +152,7 @@ final class NotchViewModel: ObservableObject {
         transientTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled, let self, self.transient?.id == t.id else { return }
+            if case .ask(let pending) = t.kind { pending.reply(nil) }   // timed out
             withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { self.transient = nil }
         }
     }
@@ -144,7 +161,20 @@ final class NotchViewModel: ObservableObject {
         show(.message(message), duration: duration)
     }
 
+    func ask(_ request: ApprovalRequest, timeout: TimeInterval = 120) {
+        if case .ask(let pending)? = transient?.kind { pending.reply(nil) }
+        show(.ask(request), duration: timeout)
+        Haptics.tap()
+        NSSound(named: "Pop")?.play()
+    }
+
+    func answer(_ request: ApprovalRequest, with option: String?) {
+        if case .ask(let cur)? = transient?.kind, cur.id == request.id { dismissTransient() }
+        request.reply(option)
+    }
+
     func dismissTransient() {
+        if case .ask(let pending)? = transient?.kind { pending.reply(nil) }
         transientTask?.cancel()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { transient = nil }
     }

@@ -65,7 +65,7 @@ struct AnyEncodable: Encodable {
 }
 
 enum PanelTab: String, CaseIterable, Codable, Identifiable {
-    case home, music, shelf, clipboard, timer, calendar, notes, system, mirror, weather
+    case home, music, shelf, clipboard, timer, calendar, reminders, notes, launcher, stocks, system, mirror, weather
     var id: String { rawValue }
 
     var title: String {
@@ -76,7 +76,10 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .clipboard: "Clipboard"
         case .timer: "Timer"
         case .calendar: "Calendar"
+        case .reminders: "Reminders"
         case .notes: "Notes"
+        case .launcher: "Apps"
+        case .stocks: "Stocks"
         case .system: "System"
         case .mirror: "Mirror"
         case .weather: "Weather"
@@ -91,7 +94,10 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .clipboard: "doc.on.clipboard.fill"
         case .timer: "timer"
         case .calendar: "calendar"
+        case .reminders: "checklist"
         case .notes: "note.text"
+        case .launcher: "square.grid.3x3.fill"
+        case .stocks: "chart.line.uptrend.xyaxis"
         case .system: "gauge.with.dots.needle.33percent"
         case .mirror: "web.camera.fill"
         case .weather: "cloud.sun.fill"
@@ -148,6 +154,20 @@ final class Preferences: ObservableObject {
     @Stored("weatherCity") var weatherCity = ""
     @Stored("weatherUseFahrenheit") var weatherUseFahrenheit = false
     @Stored("capsLockHUD") var capsLockHUD = true
+    @Stored("lyricsEnabled") var lyricsEnabled = true
+    @Stored("downloadsEnabled") var downloadsEnabled = false      // opt-in: needs Downloads folder access
+    @Stored("privacyIndicator") var privacyIndicator = true
+    @Stored("callIsland") var callIsland = true
+    @Stored("remindersEnabled") var remindersEnabled = true
+    @Stored("launcherEnabled") var launcherEnabled = false
+    @Stored("stocksEnabled") var stocksEnabled = false
+    @Stored("stockSymbols") var stockSymbols: [String] = ["AAPL", "MSFT", "NVDA"]
+    @Stored("batteryLowLevel") var batteryLowLevel = 20
+    @Stored("batteryCriticalLevel") var batteryCriticalLevel = 10
+    @Stored("batteryFullAlert") var batteryFullAlert = true
+    @Stored("searchEngine") var searchEngine = "google"
+    @Stored("menuBarNextMeeting") var menuBarNextMeeting = false
+    @Stored("hideInFullscreen") var hideInFullscreen = false
 
     // Calendar / meetings
     @Stored("meetingAlertsEnabled") var meetingAlertsEnabled = true
@@ -187,7 +207,10 @@ final class Preferences: ObservableObject {
             case .clipboard: clipboardEnabled
             case .timer: timerEnabled
             case .calendar: calendarEnabled
+            case .reminders: remindersEnabled
             case .notes: notesEnabled
+            case .launcher: launcherEnabled
+            case .stocks: stocksEnabled
             case .system: systemEnabled
             case .mirror: mirrorEnabled
             case .weather: weatherEnabled

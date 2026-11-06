@@ -8,6 +8,9 @@ struct CompactRowView: View {
     @ObservedObject var music = MusicManager.shared
     @ObservedObject var timer = TimerManager.shared
     @ObservedObject var keepAwake = KeepAwakeManager.shared
+    @ObservedObject var privacy = PrivacyMonitor.shared
+    @ObservedObject var downloads = DownloadMonitor.shared
+    @ObservedObject var audio = AudioDeviceManager.shared
     @ObservedObject var cal = CalendarManager.shared
     @Environment(\.islandTint) private var tint
 
@@ -81,12 +84,40 @@ struct CompactRowView: View {
             .frame(height: h)
         } else {
             HStack(spacing: 0) {
-                if keepAwake.isActive {
+                if privacy.inCall, prefs.callIsland {
+                    // Live call: timer on the left, mic mute button on the right.
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        HStack(spacing: 5) {
+                            Circle().fill(.green).frame(width: 7, height: 7)
+                            Text(ctx.date.timeIntervalSince(privacy.callStarted ?? ctx.date).clockString)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.green)
+                        }
+                    }.padding(.horizontal, inset + 2)
+                } else if keepAwake.isActive {
                     Image(systemName: "cup.and.saucer.fill").font(.system(size: 11)).foregroundStyle(.yellow)
                         .frame(width: side).padding(.horizontal, inset)
+                } else if let d = downloads.active {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.down.circle").font(.system(size: 11, weight: .semibold)).foregroundStyle(.cyan)
+                        if let p = d.progress {
+                            ProgressView(value: p).progressViewStyle(.linear).tint(.cyan).frame(width: 46)
+                        } else {
+                            Text(SystemStats.bytes(Double(d.bytes), perSecond: false)).font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.cyan)
+                        }
+                    }.padding(.horizontal, inset + 2).help(d.name)
                 }
                 Spacer().frame(width: vm.notchWidth)
-                if prefs.showClockInPill {
+                if privacy.inCall, prefs.callIsland {
+                    Button { audio.toggleMicMute() } label: {
+                        Image(systemName: audio.micMuted ? "mic.slash.fill" : "mic.fill").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(audio.micMuted ? .red : .white).frame(width: side, height: side)
+                    }.buttonStyle(.plain).padding(.horizontal, inset).help(audio.micMuted ? "Unmute microphone" : "Mute microphone")
+                } else if prefs.privacyIndicator, privacy.micInUse || privacy.cameraInUse {
+                    HStack(spacing: 4) {
+                        if privacy.cameraInUse { Circle().fill(.green).frame(width: 7, height: 7) }
+                        if privacy.micInUse { Circle().fill(.orange).frame(width: 7, height: 7) }
+                    }.padding(.horizontal, inset + 2).help((privacy.cameraInUse ? "Camera" : "") + (privacy.cameraInUse && privacy.micInUse ? " and " : "") + (privacy.micInUse ? "microphone" : "") + " in use")
+                } else if prefs.showClockInPill {
                     TimelineView(.everyMinute) { ctx in
                         Text(ctx.date.shortTime).font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit()
                             .foregroundStyle(.white.opacity(0.9))
@@ -161,6 +192,29 @@ struct TransientView: View {
             }.frame(height: h)
             .contentShape(Rectangle())
             .onTapGesture { if let a = m.action { vm.dismissTransient(); a() } }
+        case .ask(let q):
+            HStack(spacing: 0) {
+                Image(systemName: q.symbol ?? "questionmark.circle.fill")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(.orange)
+                    .frame(width: side).padding(.horizontal, 6)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(q.title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                    if let s = q.subtitle, !s.isEmpty { Text(s).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                .frame(maxWidth: 150, alignment: .leading)
+                Spacer().frame(width: vm.notchWidth)
+                HStack(spacing: 5) {
+                    ForEach(Array(q.options.prefix(3).enumerated()), id: \.offset) { i, opt in
+                        Button { vm.answer(q, with: opt) } label: {
+                            Text(opt).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                                .padding(.horizontal, 8).frame(height: 20)
+                                .background(i == 0 ? Color.green.opacity(0.85) : (i == q.options.count - 1 ? Color.red.opacity(0.7) : Color.white.opacity(0.15)), in: Capsule())
+                                .foregroundStyle(.white)
+                        }.buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+            }.frame(height: h)
         }
     }
 

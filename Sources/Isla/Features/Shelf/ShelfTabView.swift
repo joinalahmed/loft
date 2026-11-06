@@ -75,6 +75,23 @@ private struct ShelfItemView: View {
             Button("AirDrop…") { shelf.airDrop([item]) }
             Button("Copy") { shelf.copyToClipboard([item]) }
             Divider()
+            if item.isImage {
+                Menu("Convert to") {
+                    Button("PNG") { shelf.convert(item, to: .png) }
+                    Button("JPEG") { shelf.convert(item, to: .jpeg) }
+                    Button("HEIC") { shelf.convert(item, to: .heic) }
+                    Button("WebP") { shelf.convert(item, to: .webP) }
+                }
+                Menu("Resize to") {
+                    Button("50%") { shelf.resize(item, scale: 0.5) }
+                    Button("25%") { shelf.resize(item, scale: 0.25) }
+                    Button("Max 1920 px") { shelf.resize(item, maxSide: 1920) }
+                    Button("Max 1280 px") { shelf.resize(item, maxSide: 1280) }
+                }
+                Button("Copy text from image (OCR)") { shelf.ocr(item) }
+            }
+            Button("Compress to .zip") { shelf.zip([item]) }
+            Divider()
             Button("Remove from Shelf") { shelf.remove(item) }
         }
         .help(item.url.path)

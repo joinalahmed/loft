@@ -1,6 +1,15 @@
 import Foundation
 import Darwin
 import Combine
+import CoreWLAN
+import AppKit
+
+struct ExternalVolume: Identifiable, Equatable {
+    let url: URL
+    let name: String
+    let free: Int64
+    var id: URL { url }
+}
 
 @MainActor
 final class SystemStats: ObservableObject {
@@ -13,6 +22,11 @@ final class SystemStats: ObservableObject {
     @Published private(set) var netDown: Double = 0       // bytes/s
     @Published private(set) var netUp: Double = 0
     @Published private(set) var uptime: TimeInterval = 0
+    @Published private(set) var wifiRSSI: Int?
+    @Published private(set) var wifiRate: Double?
+    @Published private(set) var wifiSSID: String?
+    @Published private(set) var wifiBand: String?
+    @Published private(set) var volumes: [ExternalVolume] = []
     private var timer: Timer?
     private var prevTicks: (idle: UInt64, total: UInt64) = (0, 0)
     private var prevNet: (rx: UInt64, tx: UInt64, at: Date) = (0, 0, Date())
@@ -24,9 +38,47 @@ final class SystemStats: ObservableObject {
     func unsubscribe() { subscribers = max(0, subscribers - 1); if subscribers == 0 { timer?.invalidate(); timer = nil } }
 
     private func sample() {
-        sampleCPU(); sampleMemory(); sampleDisk(); sampleNetwork()
+        sampleCPU(); sampleMemory(); sampleDisk(); sampleNetwork(); sampleWiFi(); sampleVolumes()
         uptime = ProcessInfo.processInfo.systemUptime
     }
+
+    private func sampleWiFi() {
+        guard let iface = CWWiFiClient.shared().interface(), iface.powerOn() else { wifiRSSI = nil; return }
+        let rssi = iface.rssiValue()
+        wifiRSSI = rssi == 0 ? nil : rssi
+        wifiRate = iface.transmitRate()
+        wifiSSID = iface.ssid()   // nil without Location permission on recent macOS; that is fine
+        if let ch = iface.wlanChannel() {
+            switch ch.channelBand {
+            case .band2GHz: wifiBand = "2.4 GHz"
+            case .band5GHz: wifiBand = "5 GHz"
+            case .band6GHz: wifiBand = "6 GHz"
+            default: wifiBand = nil
+            }
+        }
+    }
+
+    private func sampleVolumes() {
+        let keys: [URLResourceKey] = [.volumeIsInternalKey, .volumeIsEjectableKey, .volumeIsRemovableKey, .volumeNameKey, .volumeIsRootFileSystemKey, .volumeAvailableCapacityKey, .volumeIsBrowsableKey]
+        let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
+        volumes = urls.compactMap { url in
+            guard let v = try? url.resourceValues(forKeys: Set(keys)), v.volumeIsRootFileSystem != true, v.volumeIsBrowsable != false,
+                  (v.volumeIsInternal == false || v.volumeIsEjectable == true || v.volumeIsRemovable == true) else { return nil }
+            return ExternalVolume(url: url, name: v.volumeName ?? url.lastPathComponent, free: Int64(v.volumeAvailableCapacity ?? 0))
+        }
+    }
+
+    func eject(_ vol: ExternalVolume) {
+        Task.detached {
+            do { try NSWorkspace.shared.unmountAndEjectDevice(at: vol.url)
+                await MainActor.run { NotchViewModel.shared.show(message: IslandMessage(title: "Ejected \(vol.name)", symbol: "eject.fill", tint: .white), duration: 2) }
+            } catch {
+                await MainActor.run { NotchViewModel.shared.show(message: IslandMessage(title: "Could not eject \(vol.name)", subtitle: "Still in use", symbol: "exclamationmark.triangle.fill", tint: .orange), duration: 3) }
+            }
+        }
+    }
+
+    func ejectAll() { volumes.forEach { eject($0) } }
 
     private func sampleCPU() {
         var count: natural_t = 0

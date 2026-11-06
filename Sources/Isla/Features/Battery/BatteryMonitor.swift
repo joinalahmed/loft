@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import SwiftUI
 import IOKit.ps
 import IOKit
 import Combine
@@ -16,6 +18,7 @@ final class BatteryMonitor: ObservableObject {
     @Published private(set) var temperatureC: Double?
     private var source: CFRunLoopSource?
     private var primed = false
+    private var announcedFull = false
     private var warnedLevels = Set<Int>()
 
     private init() {}
@@ -49,12 +52,21 @@ final class BatteryMonitor: ObservableObject {
         if plugChanged {
             NotchViewModel.shared.show(.battery(level: level, charging: isCharging, pluggedIn: pluggedIn, low: false), duration: 2.5)
         }
+        let prefs = Preferences.shared
         if !pluggedIn {
-            for threshold in [20, 10, 5] where level <= threshold && !warnedLevels.contains(threshold) {
+            for threshold in [prefs.batteryLowLevel, prefs.batteryCriticalLevel, 5] where level <= threshold && !warnedLevels.contains(threshold) {
                 warnedLevels.insert(threshold)
                 NotchViewModel.shared.show(.battery(level: level, charging: false, pluggedIn: false, low: true), duration: 4)
+                if threshold <= prefs.batteryCriticalLevel { NSSound(named: "Basso")?.play() }
             }
-        } else { warnedLevels.removeAll() }
+            announcedFull = false
+        } else {
+            warnedLevels.removeAll()
+            if level >= 100, !isCharging, !announcedFull, prefs.batteryFullAlert {
+                announcedFull = true
+                NotchViewModel.shared.show(message: IslandMessage(title: "Fully charged", subtitle: "You can unplug now", symbol: "battery.100percent.bolt", tint: .green), duration: 4)
+            }
+        }
     }
 
     private func readSmartBattery() {

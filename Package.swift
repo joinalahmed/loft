@@ -24,6 +24,9 @@ let package = Package(
                 .linkedFramework("ServiceManagement"),
                 .linkedFramework("CoreImage"),
                 .linkedFramework("UniformTypeIdentifiers"),
+                .linkedFramework("CoreWLAN"),
+                .linkedFramework("Vision"),
+                .linkedFramework("CoreMediaIO"),
             ]
         )
     ]
