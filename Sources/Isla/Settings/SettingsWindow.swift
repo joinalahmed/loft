@@ -33,6 +33,7 @@ final class SettingsWindowController {
                              styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             w.title = "Isla Settings"
             w.identifier = NSUserInterfaceItemIdentifier("isla.settings")
+            w.appearance = NSAppearance(named: .darkAqua)   // matches the island; avoids vibrancy-only text
             w.titlebarAppearsTransparent = true
             w.toolbarStyle = .unified
             w.isReleasedWhenClosed = false
@@ -62,7 +63,7 @@ struct SettingsView: View {
             .listStyle(.sidebar)
         } detail: {
             ScrollView {
-                Group {
+                VStack(alignment: .leading, spacing: 0) {
                     switch selection.tab {
                     case .general: GeneralSettings()
                     case .appearance: AppearanceSettings()
@@ -79,8 +80,10 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .navigationTitle(selection.tab.title)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(minWidth: 700, minHeight: 480)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -95,9 +98,11 @@ private struct SettingsSection<Content: View>: View {
             Text(title).font(.headline)
             VStack(alignment: .leading, spacing: 10) { content }
                 .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
             if let footer { Text(footer).font(.caption).foregroundStyle(.secondary) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, 14)
     }
 }
@@ -224,7 +229,7 @@ struct DeveloperSettings: View {
     var body: some View {
         SettingsSection(title: "Local API", footer: "Newline-delimited JSON over TCP, loopback only. Every request must carry the token.") {
             Toggle("Enable local API", isOn: $prefs.localAPIEnabled)
-            HStack { Text("Port"); TextField("9999", value: $prefs.localAPIPort, format: .number).frame(width: 80) ; Circle().fill(api.isRunning ? .green : .gray).frame(width: 8, height: 8); Text(api.isRunning ? "listening" : (api.lastError ?? "stopped")).font(.caption).foregroundStyle(.secondary) }
+            HStack { Text("Port"); TextField("9999", value: $prefs.localAPIPort, format: .number.grouping(.never)).frame(width: 80) ; Circle().fill(api.isRunning ? .green : .gray).frame(width: 8, height: 8); Text(api.isRunning ? "listening" : (api.lastError ?? "stopped")).font(.caption).foregroundStyle(.secondary) }
             HStack {
                 Text("Token"); Text(prefs.localAPIToken).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                 Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(prefs.localAPIToken, forType: .string) }
