@@ -29,7 +29,8 @@ struct ClipboardTabView: View {
                 .scrollIndicators(.never)
             }
         }
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { searchFocused = true } }
+        .onAppear { if NotchViewModel.shared.wantsKeyboard { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { searchFocused = true } } }
+        .onReceive(NotificationCenter.default.publisher(for: .islaWantsKeyboard)) { _ in searchFocused = true }
     }
 }
 

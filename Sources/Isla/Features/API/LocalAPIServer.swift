@@ -103,13 +103,14 @@ final class LocalAPIServer: ObservableObject {
         switch command {
         case "status":
             return ["ok": true, "state": vm.state == .open ? "open" : "closed", "tab": vm.tab.rawValue, "hidden": vm.isHidden,
+                    "hasKeyboardFocus": NSApp.keyWindow is NotchWindow,
                     "music": ["playing": music.isPlaying, "title": music.title, "artist": music.artist, "album": music.album,
                               "elapsed": music.elapsed, "duration": music.duration, "source": music.bundleIdentifier],
                     "timer": ["mode": TimerManager.shared.mode.rawValue, "running": TimerManager.shared.isRunning, "remaining": TimerManager.shared.remaining],
                     "battery": ["level": BatteryMonitor.shared.level, "charging": BatteryMonitor.shared.isCharging],
                     "keepAwake": KeepAwakeManager.shared.isActive,
                     "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"]
-        case "open": vm.open(tab: PanelTab(rawValue: req["tab"] as? String ?? "")); return ["ok": true]
+        case "open": vm.open(tab: PanelTab(rawValue: req["tab"] as? String ?? ""), focus: req["focus"] as? Bool ?? false); return ["ok": true]
         case "close": vm.close(); return ["ok": true]
         case "toggle": vm.toggle(); return ["ok": true]
         case "hide": vm.isHidden = true; return ["ok": true]

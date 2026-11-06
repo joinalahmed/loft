@@ -45,6 +45,9 @@ final class NotchViewModel: ObservableObject {
     @Published var paletteVisible = false
     @Published var isDragTargeted = false
     @Published var pinnedOpen = false   // e.g. while a sharing sheet is up
+    /// True only when the user opened the panel deliberately (click, hotkey, palette).
+    /// Hover- and API-opens never take keyboard focus away from the frontmost app.
+    @Published private(set) var wantsKeyboard = false
 
     let prefs = Preferences.shared
     private var hoverTask: Task<Void, Never>?
@@ -63,26 +66,35 @@ final class NotchViewModel: ObservableObject {
 
     // MARK: Open / close
 
-    func open(tab: PanelTab? = nil) {
+    func open(tab: PanelTab? = nil, focus: Bool = false) {
         hoverTask?.cancel()
         autoCloseTask?.cancel()
         if let tab, prefs.enabledTabs.contains(tab) { self.tab = tab }
+        if focus && !wantsKeyboard { wantsKeyboard = true; NotificationCenter.default.post(name: .islaWantsKeyboard, object: nil) }
         guard state != .open else { return }
         Haptics.tap()
         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { state = .open }
-        NotificationCenter.default.post(name: .islaOpenPanel, object: nil)
+        NotificationCenter.default.post(name: .islaOpenPanel, object: nil, userInfo: ["focus": focus])
     }
 
     func close() {
         hoverTask?.cancel()
         autoCloseTask?.cancel()
         paletteVisible = false
+        wantsKeyboard = false
         guard state != .closed, !pinnedOpen else { return }
         withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) { state = .closed }
         NotificationCenter.default.post(name: .islaClosePanel, object: nil)
     }
 
-    func toggle() { state == .open ? close() : open() }
+    func toggle(focus: Bool = false) { state == .open ? close() : open(focus: focus) }
+
+    /// Called when the user clicks inside the open panel: from then on keys may go to Isla.
+    func userInteracted() {
+        guard !wantsKeyboard else { return }
+        wantsKeyboard = true
+        NotificationCenter.default.post(name: .islaWantsKeyboard, object: nil)
+    }
 
     /// Open, then close automatically after `seconds` unless the user moves in.
     func peek(tab: PanelTab? = nil, seconds: Double = 3) {

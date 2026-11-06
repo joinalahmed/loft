@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                      forEventClass: AEEventClass(kInternetEventClass),
                                                      andEventID: AEEventID(kAEGetURL))
         createWindow()
+        observePanelState()
         startServices()
         installMonitors()
         HotKeyManager.shared.registerDefaults()
@@ -59,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func createWindow() {
         let screen = NSScreen.preferredNotchScreen ?? NSScreen.screens[0]
         vm.updateMetrics(for: screen)
-        let w = NotchWindow(contentRect: windowFrame(on: screen))
+        let w = NotchWindow(contentRect: windowFrame(on: screen, expanded: false))
         let host = NSHostingView(rootView: NotchRootView())
         host.wantsLayer = true
         host.layer?.backgroundColor = .clear
@@ -70,18 +71,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hosting = host
     }
 
-    private func windowFrame(on screen: NSScreen) -> NSRect {
+    /// Full frame while the panel is open; a thin strip across the menu bar while closed, so the
+    /// (transparent) window never sits over an app's toolbar when it has nothing to show there.
+    private func windowFrame(on screen: NSScreen, expanded: Bool) -> NSRect {
         let pad: CGFloat = 40
         let width = max(prefs.panelWidth, 760) + pad * 2
-        let height = prefs.panelHeight + pad
+        let height = expanded ? prefs.panelHeight + pad : vm.closedHeight + 28
         return NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
     }
+
+    private var shrinkTask: Task<Void, Never>?
 
     func repositionWindow() {
         guard let window, let screen = NSScreen.preferredNotchScreen ?? NSScreen.screens.first else { return }
         vm.updateMetrics(for: screen)
-        window.setFrame(windowFrame(on: screen), display: true)
+        window.setFrame(windowFrame(on: screen, expanded: vm.state == .open), display: true)
         window.orderFrontRegardless()
+    }
+
+    private func observePanelState() {
+        vm.$state.removeDuplicates().sink { [weak self] state in
+            guard let self, let window = self.window, let screen = window.screen ?? NSScreen.preferredNotchScreen else { return }
+            self.shrinkTask?.cancel()
+            if state == .open {
+                window.setFrame(self.windowFrame(on: screen, expanded: true), display: true)   // grow before the animation starts
+            } else {
+                self.shrinkTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .milliseconds(600))                           // after the close animation
+                    guard !Task.isCancelled, let self, self.vm.state == .closed else { return }
+                    window.setFrame(self.windowFrame(on: screen, expanded: false), display: true)
+                }
+            }
+        }.store(in: &cancellables)
     }
 
     private func applyPreferences() {
@@ -122,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Keys while our panel is key: Esc closes, ⌘K palette, ⌘1-9 tabs, arrows cycle.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.vm.state == .open else { return event }
+            guard let self, self.vm.state == .open, self.window?.isKeyWindow == true else { return event }
             if event.keyCode == 53 { // esc
                 if self.vm.paletteVisible { self.vm.paletteVisible = false } else { self.vm.close() }
                 return nil
@@ -140,11 +161,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
-        NotificationCenter.default.publisher(for: .islaOpenPanel).sink { [weak self] _ in
+        // Keyboard focus is taken only on deliberate opens; hover-open must never interrupt typing.
+        NotificationCenter.default.publisher(for: .islaOpenPanel).sink { [weak self] note in
+            if note.userInfo?["focus"] as? Bool == true { self?.window?.makeKey() }
+        }.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .islaWantsKeyboard).sink { [weak self] _ in
             self?.window?.makeKey()
         }.store(in: &cancellables)
         NotificationCenter.default.publisher(for: .islaClosePanel).sink { [weak self] _ in
-            self?.window?.resignKey()
+            guard let w = self?.window, w.isKeyWindow else { return }
+            w.resignKey()
+            // Hand focus back to whatever app the user was in.
+            if let front = NSWorkspace.shared.frontmostApplication, front != NSRunningApplication.current { front.activate() }
         }.store(in: &cancellables)
     }
 

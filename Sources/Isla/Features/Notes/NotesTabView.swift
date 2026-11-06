@@ -42,6 +42,7 @@ struct NotesTabView: View {
                 SmallIconButton(symbol: "trash", size: 10, help: "Clear") { notes.text = "" }
             }.padding(6)
         }
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true } }
+        .onAppear { if NotchViewModel.shared.wantsKeyboard { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true } } }
+        .onReceive(NotificationCenter.default.publisher(for: .islaWantsKeyboard)) { _ in focused = true }
     }
 }

@@ -68,8 +68,9 @@ struct NotchRootView: View {
         .onHover { vm.hoverChanged($0) }
         .onTapGesture {
             guard !isOpen else { return }
-            if vm.transient == nil, CalendarManager.shared.imminentEvent != nil { vm.open(tab: .calendar) } else { vm.open() }
+            if vm.transient == nil, CalendarManager.shared.imminentEvent != nil { vm.open(tab: .calendar, focus: true) } else { vm.open(focus: true) }
         }
+        .simultaneousGesture(TapGesture().onEnded { if isOpen { vm.userInteracted() } })
         .contextMenu {
             Button("Settings…") { SettingsWindowController.shared.show() }
             Button(vm.isHidden ? "Show Isla" : "Hide Isla (⌥Space)") { vm.isHidden.toggle() }

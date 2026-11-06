@@ -18,7 +18,7 @@ struct PanelHeaderView: View {
             }
             Spacer(minLength: vm.notchWidth * 0.25)
             HStack(spacing: 10) {
-                HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.paletteVisible.toggle() }
+                HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.userInteracted(); vm.paletteVisible.toggle() }
                 HeaderIcon(symbol: "camera.viewfinder", help: "Capture region (⌃⌥⇧4)") { ScreenshotManager.shared.capture(.region) }
                     .contextMenu {
                         Button("Capture Region") { ScreenshotManager.shared.capture(.region) }

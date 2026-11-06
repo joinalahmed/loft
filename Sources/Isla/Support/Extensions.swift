@@ -82,4 +82,5 @@ extension Notification.Name {
     static let islaOpenPanel = Notification.Name("isla.openPanel")
     static let islaClosePanel = Notification.Name("isla.closePanel")
     static let islaScreenChanged = Notification.Name("isla.screenChanged")
+    static let islaWantsKeyboard = Notification.Name("isla.wantsKeyboard")
 }

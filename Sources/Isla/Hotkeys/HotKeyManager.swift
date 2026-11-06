@@ -15,12 +15,12 @@ final class HotKeyManager {
         let vm = NotchViewModel.shared
         let ctrlOpt = UInt32(controlKey | optionKey)
         bindings = [
-            Binding(id: 1, keyCode: UInt32(kVK_ANSI_N), modifiers: ctrlOpt, title: "⌃⌥N  Toggle panel") { vm.toggle() },
+            Binding(id: 1, keyCode: UInt32(kVK_ANSI_N), modifiers: ctrlOpt, title: "⌃⌥N  Toggle panel") { vm.toggle(focus: true) },
             Binding(id: 2, keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey), title: "⌥Space  Hide / show Isla") { vm.isHidden.toggle() },
-            Binding(id: 3, keyCode: UInt32(kVK_ANSI_C), modifiers: ctrlOpt, title: "⌃⌥C  Clipboard") { vm.state == .open && vm.tab == .clipboard ? vm.close() : vm.open(tab: .clipboard) },
-            Binding(id: 4, keyCode: UInt32(kVK_ANSI_K), modifiers: ctrlOpt, title: "⌃⌥K  Command palette") { vm.open(); vm.paletteVisible = true },
-            Binding(id: 5, keyCode: UInt32(kVK_ANSI_T), modifiers: ctrlOpt, title: "⌃⌥T  Timer") { vm.open(tab: .timer) },
-            Binding(id: 6, keyCode: UInt32(kVK_ANSI_S), modifiers: ctrlOpt, title: "⌃⌥S  Shelf") { vm.open(tab: .shelf) },
+            Binding(id: 3, keyCode: UInt32(kVK_ANSI_C), modifiers: ctrlOpt, title: "⌃⌥C  Clipboard") { vm.state == .open && vm.tab == .clipboard ? vm.close() : vm.open(tab: .clipboard, focus: true) },
+            Binding(id: 4, keyCode: UInt32(kVK_ANSI_K), modifiers: ctrlOpt, title: "⌃⌥K  Command palette") { vm.open(focus: true); vm.paletteVisible = true },
+            Binding(id: 5, keyCode: UInt32(kVK_ANSI_T), modifiers: ctrlOpt, title: "⌃⌥T  Timer") { vm.open(tab: .timer, focus: true) },
+            Binding(id: 6, keyCode: UInt32(kVK_ANSI_S), modifiers: ctrlOpt, title: "⌃⌥S  Shelf") { vm.open(tab: .shelf, focus: true) },
             Binding(id: 7, keyCode: UInt32(kVK_ANSI_A), modifiers: ctrlOpt, title: "⌃⌥A  Toggle keep awake") { KeepAwakeManager.shared.toggle() },
             Binding(id: 8, keyCode: UInt32(kVK_ANSI_3), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧3  Screenshot: full screen") { ScreenshotManager.shared.capture(.full) },
             Binding(id: 9, keyCode: UInt32(kVK_ANSI_4), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧4  Screenshot: region") { ScreenshotManager.shared.capture(.region) },
