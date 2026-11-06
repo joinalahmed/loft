@@ -165,6 +165,27 @@ struct FeatureSettings: View {
             HStack { Text("City"); TextField("Lisbon", text: $prefs.weatherCity).frame(width: 220).onSubmit { WeatherService.shared.refreshIfNeeded(force: true) } }
             Toggle("Use Fahrenheit", isOn: $prefs.weatherUseFahrenheit).onChange(of: prefs.weatherUseFahrenheit) { _, _ in WeatherService.shared.refreshIfNeeded(force: true) }
         }
+        SettingsSection(title: "Meeting alerts", footer: "Events come from every account added in System Settings → Internet Accounts (iCloud, Google, Outlook, CalDAV). Join links are detected for Zoom, Meet, Teams, Webex, Whereby, FaceTime, Slack and Discord.") {
+            Toggle("Alert before meetings", isOn: $prefs.meetingAlertsEnabled)
+            Stepper("Alert \(prefs.meetingLeadMinutes) min before", value: $prefs.meetingLeadMinutes, in: 0...30)
+            Toggle("Full-screen pop-up on every display (otherwise an island)", isOn: $prefs.meetingAlertFullScreen)
+            Toggle("Only events with a video-call link", isOn: $prefs.meetingAlertOnlyWithLinks)
+            Toggle("Play a sound", isOn: $prefs.meetingAlertSound)
+            Stepper("Show countdown in the pill \(prefs.meetingPillMinutes) min before", value: $prefs.meetingPillMinutes, in: 1...60)
+            Button("Preview alert") { CalendarManager.shared.testAlert() }
+        }
+        SettingsSection(title: "Screenshots", footer: "Capture uses the system screencapture tool; macOS asks for Screen Recording access the first time. ⌃⌥⇧3 full · ⌃⌥⇧4 region · ⌃⌥⇧5 window.") {
+            Toggle("Add screenshots to the shelf", isOn: $prefs.screenshotToShelf)
+            Toggle("Copy screenshots to the clipboard", isOn: $prefs.screenshotToClipboard)
+            Toggle("Save to Desktop (otherwise ~/Library/Application Support/Isla/Screenshots)", isOn: $prefs.screenshotSaveToDesktop)
+            Toggle("Watch the Desktop so native ⌘⇧3/4/5 screenshots land on the shelf", isOn: $prefs.watchDesktopScreenshots)
+        }
+        SettingsSection(title: "Keep awake") {
+            Picker("Default duration", selection: $prefs.keepAwakeDefaultMinutes) {
+                ForEach(KeepAwakeManager.durations, id: \.minutes) { d in Text(d.title).tag(d.minutes) }
+            }.frame(width: 300)
+            Toggle("Allow the display to sleep (keep only the system awake)", isOn: $prefs.keepAwakeAllowDisplaySleep)
+        }
         SettingsSection(title: "Battery") {
             Toggle("Show charger and low-battery islands", isOn: $prefs.batteryAlerts)
         }
@@ -261,6 +282,8 @@ struct PermissionsSettings: View {
             PermissionRow(name: "Camera", detail: "Mirror tab", granted: AVCaptureDeviceAuth.granted,
                           request: { AVCaptureDeviceAuth.request() },
                           open: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")
+            PermissionRow(name: "Screen Recording", detail: "Screenshots from the notch", granted: nil, request: nil,
+                          open: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
             PermissionRow(name: "Automation (Music / Spotify)", detail: "Only used if the Now Playing adapter is unavailable", granted: nil, request: nil,
                           open: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
         }

@@ -137,8 +137,26 @@ final class LocalAPIServer: ObservableObject {
             }
             return ["ok": true]
         case "keepawake":
-            if let on = req["on"] as? Bool { on ? KeepAwakeManager.shared.acquire() : KeepAwakeManager.shared.release() } else { KeepAwakeManager.shared.toggle() }
-            return ["ok": true, "active": KeepAwakeManager.shared.isActive]
+            let minutes = Int(req["minutes"] as? Double ?? 0)
+            if let on = req["on"] as? Bool { on ? KeepAwakeManager.shared.acquire(minutes: minutes) : KeepAwakeManager.shared.release() }
+            else if minutes > 0 { KeepAwakeManager.shared.acquire(minutes: minutes) } else { KeepAwakeManager.shared.toggle() }
+            return ["ok": true, "active": KeepAwakeManager.shared.isActive, "status": KeepAwakeManager.shared.statusText]
+        case "screenshot":
+            let mode = ScreenshotManager.Mode(rawValue: req["mode"] as? String ?? "region") ?? .region
+            ScreenshotManager.shared.capture(mode)
+            return ["ok": true]
+        case "meeting":
+            switch req["action"] as? String {
+            case "test": CalendarManager.shared.testAlert()
+            case "dismiss": MeetingAlertController.shared.dismiss()
+            case "join": MeetingAlertController.shared.join()
+            default:
+                if let ev = CalendarManager.shared.nextEvent {
+                    return ["ok": true, "title": ev.title ?? "", "start": ISO8601DateFormatter().string(from: ev.startDate), "join": CalendarManager.joinURL(for: ev)?.absoluteString ?? ""]
+                }
+                return ["ok": true, "title": ""]
+            }
+            return ["ok": true]
         case "clipboard":
             let n = Int(req["limit"] as? Double ?? 10)
             return ["ok": true, "items": ClipboardManager.shared.items.prefix(n).map { ["kind": $0.kind.rawValue, "text": $0.kind == .image ? "" : $0.text, "date": ISO8601DateFormatter().string(from: $0.date), "pinned": $0.pinned] }]
@@ -154,8 +172,9 @@ final class LocalAPIServer: ObservableObject {
         case "snapshot":
             // Developer aid: render the island view to a PNG (no screen-recording permission needed).
             let wantSettings = req["window"] as? String == "settings"
+            let wantMeeting = req["window"] as? String == "meeting"
             guard let path = req["path"] as? String,
-                  let window = NSApp.windows.first(where: { wantSettings ? $0.identifier?.rawValue == "isla.settings" : $0 is NotchWindow }), let view = window.contentView else {
+                  let window = NSApp.windows.first(where: { wantSettings ? $0.identifier?.rawValue == "isla.settings" : wantMeeting ? ($0.contentView is NSHostingView<MeetingAlertView>) : $0 is NotchWindow }), let view = window.contentView else {
                 return ["ok": false, "error": "no window"]
             }
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return ["ok": false, "error": "no rep"] }
@@ -185,7 +204,7 @@ final class LocalAPIServer: ObservableObject {
             }
             return ["ok": true]
         default:
-            return ["ok": false, "error": "unknown command", "commands": ["status", "open", "close", "toggle", "hide", "show", "music", "timer", "keepawake", "clipboard", "shelf", "volume", "brightness", "(no command + title → message)"]]
+            return ["ok": false, "error": "unknown command", "commands": ["status", "open", "close", "toggle", "hide", "show", "tab", "music", "timer", "keepawake", "screenshot", "meeting", "clipboard", "shelf", "volume", "brightness", "settings", "snapshot", "(no command + title → message)"]]
         }
     }
 }

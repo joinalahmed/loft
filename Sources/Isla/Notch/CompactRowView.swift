@@ -8,6 +8,7 @@ struct CompactRowView: View {
     @ObservedObject var music = MusicManager.shared
     @ObservedObject var timer = TimerManager.shared
     @ObservedObject var keepAwake = KeepAwakeManager.shared
+    @ObservedObject var cal = CalendarManager.shared
     @Environment(\.islandTint) private var tint
 
     var body: some View {
@@ -28,6 +29,24 @@ struct CompactRowView: View {
 
         if let t = vm.transient {
             TransientView(transient: t, side: side)
+        } else if let ev = cal.imminentEvent, prefs.calendarEnabled, prefs.meetingAlertsEnabled {
+            let isCall = CalendarManager.isVideoCall(ev)
+            HStack(spacing: 0) {
+                Image(systemName: isCall ? "video.fill" : "calendar")
+                    .font(.system(size: 12, weight: .bold)).foregroundStyle(.green)
+                    .frame(width: side).padding(.horizontal, inset)
+                Spacer().frame(width: vm.notchWidth)
+                HStack(spacing: 6) {
+                    Text(ev.title ?? "Meeting").font(.system(size: 12, weight: .semibold)).lineLimit(1).frame(maxWidth: 120, alignment: .leading)
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        let s = Int(ev.startDate.timeIntervalSince(ctx.date))
+                        Text(s > 0 ? (s >= 60 ? "\(s / 60)m" : "\(s)s") : "now")
+                            .font(.system(size: 12, weight: .bold, design: .rounded)).monospacedDigit().foregroundStyle(.green)
+                    }
+                }
+                .padding(.horizontal, inset + 4)
+            }
+            .frame(height: h)
         } else if timer.isRunning && prefs.timerEnabled {
             HStack(spacing: 0) {
                 TimerRingView(progress: timer.progress, side: side)
@@ -119,9 +138,15 @@ struct TransientView: View {
             }.frame(height: h)
         case .message(let m):
             HStack(spacing: 0) {
-                Image(systemName: m.symbol ?? "bell.badge.fill")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(m.tint)
-                    .frame(width: side).padding(.horizontal, 6)
+                if let thumb = m.thumbnail {
+                    Image(nsImage: thumb).resizable().aspectRatio(contentMode: .fill)
+                        .frame(width: side, height: side).clipShape(RoundedRectangle(cornerRadius: 4))
+                        .padding(.horizontal, 6)
+                } else {
+                    Image(systemName: m.symbol ?? "bell.badge.fill")
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(m.tint)
+                        .frame(width: side).padding(.horizontal, 6)
+                }
                 Spacer().frame(width: vm.notchWidth)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(m.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
@@ -134,6 +159,8 @@ struct TransientView: View {
                 .frame(maxWidth: 170, alignment: .leading)
                 .padding(.horizontal, 10)
             }.frame(height: h)
+            .contentShape(Rectangle())
+            .onTapGesture { if let a = m.action { vm.dismissTransient(); a() } }
         }
     }
 

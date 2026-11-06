@@ -10,9 +10,16 @@ struct ShelfTabView: View {
         VStack(spacing: 8) {
             if shelf.items.isEmpty {
                 EmptyHint(symbol: "tray.and.arrow.down", title: "Drop files here",
-                          subtitle: "Drag anything onto the notch to stash it. Drag it back out when you need it.")
+                          subtitle: "Drag anything onto the notch to stash it. Screenshots land here too.")
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6]))
                         .foregroundStyle(targeted ? .cyan : .white.opacity(0.2)))
+                    .overlay(alignment: .bottom) {
+                        HStack(spacing: 6) {
+                            Button { ScreenshotManager.shared.capture(.region) } label: { Label("Region", systemImage: "camera.viewfinder") }
+                            Button { ScreenshotManager.shared.capture(.window) } label: { Label("Window", systemImage: "macwindow") }
+                            Button { ScreenshotManager.shared.capture(.full) } label: { Label("Screen", systemImage: "rectangle.dashed") }
+                        }.buttonStyle(.bordered).controlSize(.small).padding(.bottom, 10)
+                    }
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: 10) {
@@ -23,6 +30,7 @@ struct ShelfTabView: View {
                 .scrollIndicators(.never)
                 HStack {
                     Text("\(shelf.items.count) item\(shelf.items.count == 1 ? "" : "s")").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Button { ScreenshotManager.shared.capture(.region) } label: { Label("Capture", systemImage: "camera.viewfinder") }
                     Spacer()
                     Button { shelf.airDrop(shelf.items) } label: { Label("AirDrop all", systemImage: "airplayaudio") }
                     Button { shelf.copyToClipboard(shelf.items) } label: { Label("Copy all", systemImage: "doc.on.doc") }
@@ -34,6 +42,7 @@ struct ShelfTabView: View {
         .onDrop(of: [.fileURL, .image, .utf8PlainText], isTargeted: $targeted) { providers in
             shelf.ingest(providers); return true
         }
+        .onAppear { shelf.prune() }
     }
 }
 
@@ -44,7 +53,8 @@ private struct ShelfItemView: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            Image(nsImage: item.icon).resizable().aspectRatio(contentMode: .fit).frame(width: 48, height: 48)
+            Image(nsImage: item.icon).resizable().aspectRatio(contentMode: item.isImage ? .fill : .fit).frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: item.isImage ? 6 : 0))
             Text(item.name).font(.system(size: 10)).lineLimit(2).multilineTextAlignment(.center).frame(width: 84)
         }
         .padding(6)

@@ -13,23 +13,38 @@ by a script. macOS 14+, Apple silicon and Intel.
 - Now Playing: album art on the left, animated bars on the right, tinted with the album colour
 - HUDs: volume, brightness, Caps Lock replace the macOS overlay (optional key interception)
 - Battery: plugged in / charging / low-battery islands
+- Meetings: countdown and Join icon from 10 min before an event; full-screen Join / Snooze / Dismiss pop-up on every display at the lead time you choose
 - Timer: progress ring and remaining time while a countdown or Pomodoro runs
+- Screenshots: thumbnail island when a capture lands (yours or native ⌘⇧3/4/5)
 - Messages from scripts: title, subtitle, icon and progress via the local API or `isla://` URLs
 - Keep-awake indicator, optional clock
 
 **Expanded panel (hover, click, or ⌃⌥N)**
 | Tab | Contents |
 |---|---|
-| Home | music card, up-next event, focus timer, weather, latest clipboard item |
+| Home | music card, up-next event with Join, keep-awake status, screenshot buttons, focus timer, weather, latest clipboard item |
 | Music | artwork, scrubber, ±15 s, prev/play/next, source app |
-| Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal |
+| Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal; screenshots land here automatically |
 | Clipboard | searchable history with pins, colours, links, images, files; double-click pastes |
 | Timer | Pomodoro with sessions-per-day, countdown presets, drift-free stopwatch |
-| Calendar | today's events with Join buttons for Zoom / Meet / Teams links |
+| Calendar | today's events from every synced account (iCloud, Google, Outlook, CalDAV), Join buttons, meeting-alert preview |
 | Notes | one autosaved quick note |
 | System | CPU, memory, disk, battery gauges; network rate, cycles, uptime |
 | Mirror | camera check before a call (never recorded) |
 | Weather | current + 5 days from Open-Meteo, city-based, no location permission |
+
+**Daily-driver features, built out in depth**
+- **Meeting pop-ups**: N minutes before an event a dimmed full-screen card appears on every
+  display with the title, time, and a green **Join** button (Zoom, Meet, Teams, Webex, Whereby,
+  FaceTime, Slack, Discord links detected). Return joins, S snoozes one minute, Esc dismisses.
+  Declined events are skipped; optional island-only style.
+- **Screenshots**: region / window / full via the system capture UI, saved to the Desktop,
+  copied to the clipboard and shelved with a thumbnail island. Isla hides itself for the shot.
+  A Desktop watcher shelves native ⌘⇧3/4/5 screenshots too.
+- **Keep awake (caffeine)**: toggle or pick 15 min / 30 min / 1 h / 2 h / 4 h from the header,
+  Home card, menu bar, palette or ⌃⌥A; countdown shown on Home; optional display-sleep-only mode.
+- **Calendar sync**: anything in System Settings → Internet Accounts shows up; refreshes on
+  every EventKit change plus every 5 minutes.
 
 Plus a **command palette** (⌘K inside the panel, ⌃⌥K anywhere), a **menu bar item**,
 a **settings window** (⌘,), **launch at login**, and **hide from screen capture**.
@@ -60,6 +75,9 @@ System Settings. Sign with a Developer ID to avoid that.
 | ⌃⌥K | command palette |
 | ⌃⌥T | timer tab |
 | ⌃⌥S | shelf tab |
+| ⌃⌥A | toggle keep awake |
+| ⌃⌥M | join the next meeting |
+| ⌃⌥⇧3 / 4 / 5 | screenshot: full screen / region / window |
 | inside the panel | ⌘1–9 tabs · ← → cycle · ⌘K palette · esc close |
 
 Hotkeys use Carbon `RegisterEventHotKey`, so they work without Accessibility.
@@ -85,8 +103,10 @@ echo "{\"token\":\"$T\",\"command\":\"music\",\"action\":\"toggle\"}" | nc 127.0
 echo "{\"token\":\"$T\",\"command\":\"timer\",\"action\":\"countdown\",\"minutes\":25}" | nc 127.0.0.1 9999
 ```
 
-Commands: `status open close toggle hide show tab music timer keepawake clipboard shelf
-volume brightness settings snapshot`. A request with a `title` and no `command` shows a
+Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting
+clipboard shelf volume brightness settings snapshot`. `keepawake` takes `minutes`;
+`screenshot` takes `mode` (region|window|full); `meeting` takes `action` (test|dismiss|join)
+or returns the next event. A request with a `title` and no `command` shows a
 message island. `snapshot` renders the island (or `"window":"settings"`) to a PNG, which
 is how the screenshots in `docs/` were taken without screen-recording permission.
 
@@ -108,6 +128,7 @@ Only asked when you enable the feature:
 | Accessibility | replace the system HUD (key interception), Caps Lock indicator, paste from clipboard |
 | Calendars | Calendar tab, up-next card |
 | Camera | Mirror tab |
+| Screen Recording | screenshots taken from the notch (asked by macOS on first capture) |
 | Automation (Music/Spotify) | only the AppleScript fallback when the Now Playing adapter is unavailable |
 
 ## How it works
@@ -149,8 +170,8 @@ scripts/snap.sh               render the island to /tmp/isla-<name>.png via the 
 Sources/Isla/
   App/            IslaApp (MenuBarExtra), AppDelegate (window, monitors, URL scheme)
   Notch/          window, geometry, shape, view model, root/compact/panel/home views
-  Features/       Music, HUD, Battery, Clipboard, Shelf, Timer, Calendar, Notes,
-                  System, Camera, Weather, KeepAwake, Palette, API
+  Features/       Music, HUD, Battery, Clipboard, Shelf, Timer, Calendar (+MeetingAlert),
+                  Screenshot, Notes, System, Camera, Weather, KeepAwake, Palette, API
   Settings/       settings window and panes
   Hotkeys/        Carbon global hotkeys
   Support/        Preferences (UserDefaults wrapper), extensions, haptics, logging

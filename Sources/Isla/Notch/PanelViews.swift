@@ -19,9 +19,21 @@ struct PanelHeaderView: View {
             Spacer(minLength: vm.notchWidth * 0.25)
             HStack(spacing: 10) {
                 HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.paletteVisible.toggle() }
+                HeaderIcon(symbol: "camera.viewfinder", help: "Capture region (⌃⌥⇧4)") { ScreenshotManager.shared.capture(.region) }
+                    .contextMenu {
+                        Button("Capture Region") { ScreenshotManager.shared.capture(.region) }
+                        Button("Capture Window") { ScreenshotManager.shared.capture(.window) }
+                        Button("Capture Full Screen") { ScreenshotManager.shared.capture(.full) }
+                    }
                 HeaderIcon(symbol: keepAwake.isActive ? "cup.and.saucer.fill" : "cup.and.saucer",
-                           help: keepAwake.isActive ? "Keep awake: on" : "Keep awake: off",
+                           help: "Keep awake: \(keepAwake.statusText) · right-click for durations",
                            active: keepAwake.isActive) { keepAwake.toggle() }
+                    .contextMenu {
+                        ForEach(KeepAwakeManager.durations, id: \.minutes) { d in
+                            Button(d.title) { keepAwake.acquire(minutes: d.minutes) }
+                        }
+                        if keepAwake.isActive { Divider(); Button("Turn Off") { keepAwake.release() } }
+                    }
                 HeaderIcon(symbol: "gearshape.fill", help: "Settings") { SettingsWindowController.shared.show() }
             }
         }

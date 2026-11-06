@@ -66,7 +66,10 @@ struct NotchRootView: View {
                 radius: isOpen ? 10 : 5, y: 2)
         .contentShape(shape)
         .onHover { vm.hoverChanged($0) }
-        .onTapGesture { if !isOpen { vm.open() } }
+        .onTapGesture {
+            guard !isOpen else { return }
+            if vm.transient == nil, CalendarManager.shared.imminentEvent != nil { vm.open(tab: .calendar) } else { vm.open() }
+        }
         .contextMenu {
             Button("Settings…") { SettingsWindowController.shared.show() }
             Button(vm.isHidden ? "Show Isla" : "Hide Isla (⌥Space)") { vm.isHidden.toggle() }

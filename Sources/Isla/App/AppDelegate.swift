@@ -89,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window?.applySharing(hidden: prefs.hideFromScreenCapture)
         LocalAPIServer.shared.applyPreferences()
         MediaKeyInterceptor.shared.applyPreferences()
+        ScreenshotManager.shared.applyPreferences()
         LaunchAtLogin.apply(prefs.launchAtLogin)
     }
 
@@ -105,6 +106,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LocalAPIServer.shared.applyPreferences()
         _ = TimerManager.shared
         _ = ShelfManager.shared
+        _ = ScreenshotManager.shared
+        _ = CalendarManager.shared
     }
 
     // MARK: Event monitors

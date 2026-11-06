@@ -12,6 +12,17 @@ struct IslaApp: App {
             Button(vm.isHidden ? "Show Isla" : "Hide Isla") { vm.isHidden.toggle() }
                 .keyboardShortcut(.space, modifiers: .option)
             Divider()
+            Menu("Keep Awake") {
+                ForEach(KeepAwakeManager.durations, id: \.minutes) { d in Button(d.title) { KeepAwakeManager.shared.acquire(minutes: d.minutes) } }
+                Divider()
+                Button("Turn Off") { KeepAwakeManager.shared.release() }.disabled(!KeepAwakeManager.shared.isActive)
+            }
+            Menu("Screenshot") {
+                Button("Region") { ScreenshotManager.shared.capture(.region) }
+                Button("Window") { ScreenshotManager.shared.capture(.window) }
+                Button("Full Screen") { ScreenshotManager.shared.capture(.full) }
+            }
+            Divider()
             Button("Settings…") { SettingsWindowController.shared.show() }
                 .keyboardShortcut(",", modifiers: .command)
             Button("About Isla") { SettingsWindowController.shared.show(tab: .about) }

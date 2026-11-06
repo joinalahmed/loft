@@ -7,7 +7,12 @@ struct ShelfItem: Identifiable, Equatable {
     let id = UUID()
     let url: URL
     var name: String { url.lastPathComponent }
-    var icon: NSImage { NSWorkspace.shared.icon(forFile: url.path) }
+    var isImage: Bool { ["png", "jpg", "jpeg", "heic", "gif", "tiff", "webp"].contains(url.pathExtension.lowercased()) }
+    /// Real preview for images, Finder icon for everything else.
+    var icon: NSImage {
+        if isImage, let img = NSImage(contentsOf: url) { return img.resized(maxDimension: 160) }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
     static func == (a: ShelfItem, b: ShelfItem) -> Bool { a.url == b.url }
 }
 
@@ -40,6 +45,13 @@ final class ShelfManager: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Drops entries whose files were deleted or moved since they were shelved.
+    func prune() {
+        let before = items.count
+        items.removeAll { !FileManager.default.fileExists(atPath: $0.url.path) }
+        if items.count != before { save() }
     }
 
     func add(_ url: URL) {

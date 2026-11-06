@@ -10,6 +10,7 @@ struct HomeTabView: View {
     @ObservedObject var battery = BatteryMonitor.shared
     @ObservedObject var clip = ClipboardManager.shared
     @ObservedObject var shelf = ShelfManager.shared
+    @ObservedObject var keepAwake = KeepAwakeManager.shared
     @Environment(\.islandTint) private var tint
 
     var body: some View {
@@ -18,9 +19,11 @@ struct HomeTabView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     if prefs.calendarEnabled { calendarCard } else { batteryCard }
-                    if prefs.timerEnabled { timerCard } else { shelfCard }
+                    keepAwakeCard
+                    screenshotCard
                 }
                 HStack(spacing: 8) {
+                    if prefs.timerEnabled { timerCard } else { shelfCard }
                     if prefs.weatherEnabled { weatherCard } else { batteryCard }
                     if prefs.clipboardEnabled { clipboardCard } else if prefs.shelfEnabled { shelfCard } else { batteryCard }
                 }
@@ -68,6 +71,9 @@ struct HomeTabView: View {
                 Text(ev.title ?? "Event").font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text(ev.startDate > Date() ? "in \(relative(ev.startDate))" : "now · ends \(ev.endDate.shortTime)")
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                if let url = CalendarManager.joinURL(for: ev) {
+                    Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.borderedProminent).tint(.green).controlSize(.mini)
+                }
             } else {
                 Text("No more events").font(.system(size: 12, weight: .semibold))
                 Text("today").font(.system(size: 10)).foregroundStyle(.secondary)
@@ -107,6 +113,29 @@ struct HomeTabView: View {
     private var shelfCard: some View {
         MiniCard(symbol: "tray", title: "Shelf", color: .mint, action: { vm.tab = .shelf }) {
             Text("\(shelf.items.count) items").font(.system(size: 12, weight: .semibold))
+        }
+    }
+
+    private var keepAwakeCard: some View {
+        MiniCard(symbol: keepAwake.isActive ? "cup.and.saucer.fill" : "cup.and.saucer", title: "Keep awake", color: .yellow, action: { keepAwake.toggle() }) {
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                Text(keepAwake.statusText).font(.system(size: 12, weight: .semibold)).foregroundStyle(keepAwake.isActive ? .yellow : .secondary)
+            }
+            Text(keepAwake.isActive ? "tap to turn off" : "tap to start · ⌃⌥A").font(.system(size: 9)).foregroundStyle(.tertiary)
+        }
+        .contextMenu {
+            ForEach(KeepAwakeManager.durations, id: \.minutes) { d in Button(d.title) { keepAwake.acquire(minutes: d.minutes) } }
+            if keepAwake.isActive { Divider(); Button("Turn Off") { keepAwake.release() } }
+        }
+    }
+
+    private var screenshotCard: some View {
+        MiniCard(symbol: "camera.viewfinder", title: "Screenshot", color: .cyan, action: { ScreenshotManager.shared.capture(.region) }) {
+            HStack(spacing: 4) {
+                Button("Region") { ScreenshotManager.shared.capture(.region) }
+                Button("Window") { ScreenshotManager.shared.capture(.window) }
+            }.buttonStyle(.bordered).controlSize(.mini)
+            Text("to shelf · ⌃⌥⇧4").font(.system(size: 9)).foregroundStyle(.tertiary)
         }
     }
 

@@ -28,6 +28,16 @@ struct CommandPaletteView: View {
             PaletteAction(title: "Start stopwatch", symbol: "stopwatch", keywords: "timer") { TimerManager.shared.startStopwatch(); vm.tab = .timer },
             PaletteAction(title: "Stop timer", symbol: "stop.fill", keywords: "timer") { TimerManager.shared.stop() },
             PaletteAction(title: KeepAwakeManager.shared.isActive ? "Let Mac sleep" : "Keep Mac awake", symbol: "cup.and.saucer.fill", keywords: "caffeine awake") { KeepAwakeManager.shared.toggle() },
+            PaletteAction(title: "Keep awake for 30 minutes", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 30) },
+            PaletteAction(title: "Keep awake for 1 hour", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 60) },
+            PaletteAction(title: "Keep awake for 2 hours", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 120) },
+            PaletteAction(title: "Screenshot: region", symbol: "camera.viewfinder", keywords: "capture screen") { ScreenshotManager.shared.capture(.region) },
+            PaletteAction(title: "Screenshot: window", symbol: "macwindow", keywords: "capture screen") { ScreenshotManager.shared.capture(.window) },
+            PaletteAction(title: "Screenshot: full screen", symbol: "rectangle.dashed", keywords: "capture screen") { ScreenshotManager.shared.capture(.full) },
+            PaletteAction(title: "Join next meeting", symbol: "video.fill", keywords: "calendar zoom meet teams") {
+                if let ev = CalendarManager.shared.nextEvent, let url = CalendarManager.joinURL(for: ev) { NSWorkspace.shared.open(url) } else { vm.tab = .calendar }
+            },
+            PaletteAction(title: "Preview meeting alert", symbol: "bell.badge", keywords: "calendar test") { CalendarManager.shared.testAlert() },
             PaletteAction(title: "Clear clipboard history", symbol: "trash", keywords: "clipboard") { ClipboardManager.shared.clear() },
             PaletteAction(title: "Clear shelf", symbol: "tray", keywords: "shelf files") { ShelfManager.shared.clear() },
             PaletteAction(title: "Toggle clock in pill", symbol: "clock", keywords: "time") { prefs.showClockInPill.toggle() },

@@ -27,6 +27,8 @@ struct IslandMessage: Equatable, Identifiable {
     var symbol: String?
     var progress: Double?
     var tint: Color = .white
+    var thumbnail: NSImage?
+    var action: (() -> Void)?
     static func == (a: IslandMessage, b: IslandMessage) -> Bool { a.id == b.id }
 }
 

@@ -149,6 +149,24 @@ final class Preferences: ObservableObject {
     @Stored("weatherUseFahrenheit") var weatherUseFahrenheit = false
     @Stored("capsLockHUD") var capsLockHUD = true
 
+    // Calendar / meetings
+    @Stored("meetingAlertsEnabled") var meetingAlertsEnabled = true
+    @Stored("meetingLeadMinutes") var meetingLeadMinutes = 2
+    @Stored("meetingAlertOnlyWithLinks") var meetingAlertOnlyWithLinks = false
+    @Stored("meetingAlertFullScreen") var meetingAlertFullScreen = true
+    @Stored("meetingPillMinutes") var meetingPillMinutes = 10
+    @Stored("meetingAlertSound") var meetingAlertSound = true
+
+    // Screenshots
+    @Stored("screenshotToShelf") var screenshotToShelf = true
+    @Stored("screenshotToClipboard") var screenshotToClipboard = true
+    @Stored("screenshotSaveToDesktop") var screenshotSaveToDesktop = true
+    @Stored("watchDesktopScreenshots") var watchDesktopScreenshots = true
+
+    // Keep awake
+    @Stored("keepAwakeDefaultMinutes") var keepAwakeDefaultMinutes = 0   // 0 = until turned off
+    @Stored("keepAwakeAllowDisplaySleep") var keepAwakeAllowDisplaySleep = false
+
     // Timer
     @Stored("pomodoroWorkMinutes") var pomodoroWorkMinutes = 25
     @Stored("pomodoroBreakMinutes") var pomodoroBreakMinutes = 5

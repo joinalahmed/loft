@@ -3,6 +3,7 @@ import EventKit
 
 struct CalendarTabView: View {
     @ObservedObject var cal = CalendarManager.shared
+    @ObservedObject var prefs = Preferences.shared
 
     var body: some View {
         if !cal.authorized {
@@ -24,17 +25,29 @@ struct CalendarTabView: View {
                     Text(Date(), format: .dateTime.day()).font(.system(size: 42, weight: .bold, design: .rounded))
                     Text(Date(), format: .dateTime.month(.wide)).font(.system(size: 12)).foregroundStyle(.secondary)
                     Spacer()
+                    if let ev = cal.nextEvent, let url = CalendarManager.joinURL(for: ev) {
+                        Button { NSWorkspace.shared.open(url) } label: { Label("Join next", systemImage: "video.fill") }
+                            .buttonStyle(.borderedProminent).tint(.green).controlSize(.small)
+                    }
                     Button("Open Calendar") { NSWorkspace.shared.open(URL(string: "ical://")!) }.buttonStyle(.bordered).controlSize(.small)
                 }
-                .frame(width: 120)
-                if cal.todayEvents.isEmpty {
-                    EmptyHint(symbol: "sun.max", title: "No events today", subtitle: "Enjoy the open calendar.")
-                } else {
-                    ScrollView {
-                        VStack(spacing: 4) {
-                            ForEach(cal.todayEvents, id: \.eventIdentifier) { ev in EventRow(event: ev) }
-                        }
-                    }.scrollIndicators(.never)
+                .frame(width: 130)
+                VStack(spacing: 6) {
+                    if cal.todayEvents.isEmpty {
+                        EmptyHint(symbol: "sun.max", title: "No events today", subtitle: "Synced from \(cal.calendarSources.joined(separator: ", ")).")
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 4) {
+                                ForEach(cal.todayEvents, id: \.eventIdentifier) { ev in EventRow(event: ev) }
+                            }
+                        }.scrollIndicators(.never)
+                    }
+                    HStack {
+                        Text("Alerts \(prefs.meetingLeadMinutes) min before · \(cal.calendarSources.count) account\(cal.calendarSources.count == 1 ? "" : "s")")
+                            .font(.system(size: 10)).foregroundStyle(.tertiary)
+                        Spacer()
+                        Button("Preview alert") { cal.testAlert() }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
                 }
             }
         }

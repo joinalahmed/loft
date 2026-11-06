@@ -21,6 +21,13 @@ final class HotKeyManager {
             Binding(id: 4, keyCode: UInt32(kVK_ANSI_K), modifiers: ctrlOpt, title: "⌃⌥K  Command palette") { vm.open(); vm.paletteVisible = true },
             Binding(id: 5, keyCode: UInt32(kVK_ANSI_T), modifiers: ctrlOpt, title: "⌃⌥T  Timer") { vm.open(tab: .timer) },
             Binding(id: 6, keyCode: UInt32(kVK_ANSI_S), modifiers: ctrlOpt, title: "⌃⌥S  Shelf") { vm.open(tab: .shelf) },
+            Binding(id: 7, keyCode: UInt32(kVK_ANSI_A), modifiers: ctrlOpt, title: "⌃⌥A  Toggle keep awake") { KeepAwakeManager.shared.toggle() },
+            Binding(id: 8, keyCode: UInt32(kVK_ANSI_3), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧3  Screenshot: full screen") { ScreenshotManager.shared.capture(.full) },
+            Binding(id: 9, keyCode: UInt32(kVK_ANSI_4), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧4  Screenshot: region") { ScreenshotManager.shared.capture(.region) },
+            Binding(id: 10, keyCode: UInt32(kVK_ANSI_5), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧5  Screenshot: window") { ScreenshotManager.shared.capture(.window) },
+            Binding(id: 11, keyCode: UInt32(kVK_ANSI_M), modifiers: ctrlOpt, title: "⌃⌥M  Join next meeting") {
+                if let ev = CalendarManager.shared.nextEvent, let url = CalendarManager.joinURL(for: ev) { NSWorkspace.shared.open(url) } else { vm.open(tab: .calendar) }
+            },
         ]
         installHandler()
         for b in bindings { register(b) }
