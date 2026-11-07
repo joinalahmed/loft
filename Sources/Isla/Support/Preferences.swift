@@ -65,7 +65,7 @@ struct AnyEncodable: Encodable {
 }
 
 enum PanelTab: String, CaseIterable, Codable, Identifiable {
-    case home, music, shelf, clipboard, timer, calendar, reminders, notes, terminal, launcher, stocks, system, mirror, weather
+    case home, music, shelf, clipboard, timer, calendar, reminders, notes, terminal, launcher, stocks, system, mirror, weather, worldClock
     var id: String { rawValue }
 
     var title: String {
@@ -84,6 +84,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .system: "System"
         case .mirror: "Mirror"
         case .weather: "Weather"
+        case .worldClock: "World Clock"
         }
     }
 
@@ -103,6 +104,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .system: "gauge.with.dots.needle.33percent"
         case .mirror: "web.camera.fill"
         case .weather: "cloud.sun.fill"
+        case .worldClock: "globe.europe.africa.fill"
         }
     }
 }
@@ -158,7 +160,14 @@ final class Preferences: ObservableObject {
     @Stored("capsLockHUD") var capsLockHUD = true
     @Stored("lyricsEnabled") var lyricsEnabled = true
     @Stored("terminalEnabled") var terminalEnabled = true
+    @Stored("worldClockEnabled") var worldClockEnabled = true
     @Stored("headerPalette") var headerPalette = true
+    @Stored("headerLock") var headerLock = false
+    @Stored("pauseMusicOnLock") var pauseMusicOnLock = true
+    @Stored("resumeMusicOnUnlock") var resumeMusicOnUnlock = false
+    @Stored("releaseKeepAwakeOnLock") var releaseKeepAwakeOnLock = true
+    @Stored("welcomeBackIsland") var welcomeBackIsland = true
+    @Stored("lockScreenWidgets") var lockScreenWidgets = false
     @Stored("headerScreenshot") var headerScreenshot = true
     @Stored("headerKeepAwake") var headerKeepAwake = true
     @Stored("disabledHotkeys") var disabledHotkeys: [Int] = []
@@ -245,6 +254,7 @@ final class Preferences: ObservableObject {
         case .system: systemEnabled = enabled
         case .mirror: mirrorEnabled = enabled
         case .weather: weatherEnabled = enabled
+        case .worldClock: worldClockEnabled = enabled
         }
     }
 
@@ -265,6 +275,7 @@ final class Preferences: ObservableObject {
             case .system: systemEnabled
             case .mirror: mirrorEnabled
             case .weather: weatherEnabled
+            case .worldClock: worldClockEnabled
             }
         }
     }

@@ -171,22 +171,34 @@ final class GoogleCalendarService: ObservableObject {
                 return GoogleCalendar(id: id, name: c["summaryOverride"] as? String ?? c["summary"] as? String ?? id,
                                       color: Color(hex: c["backgroundColor"] as? String ?? "#4285F4") ?? .blue, primary: c["primary"] as? Bool ?? false)
             }
-            let iso = ISO8601DateFormatter()
             let dayStart = Calendar.current.startOfDay(for: Date())
             let dayEnd = Calendar.current.date(byAdding: .day, value: 2, to: dayStart)!
-            var all: [MeetingEvent] = []
-            for cal in cals {
-                var c = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(cal.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cal.id)/events")!
-                c.queryItems = [.init(name: "timeMin", value: iso.string(from: dayStart)), .init(name: "timeMax", value: iso.string(from: dayEnd)),
-                                .init(name: "singleEvents", value: "true"), .init(name: "orderBy", value: "startTime"), .init(name: "maxResults", value: "50")]
-                guard let obj = await Self.get(c.url!.absoluteString, token: token), let items = obj["items"] as? [[String: Any]] else { continue }
-                for e in items { if let ev = Self.event(from: e, calendar: cal) { all.append(ev) } }
-            }
             self.calendars = cals
-            self.events = all.sorted { $0.startDate < $1.startDate }
+            self.events = await Self.fetch(from: dayStart, to: dayEnd, calendars: cals, token: token)
             self.lastSync = Date(); self.lastError = nil
             CalendarManager.shared.mergeSources()
         }
+    }
+
+    /// Events in a range across the given calendars, sorted by start.
+    private static func fetch(from start: Date, to end: Date, calendars: [GoogleCalendar], token: String) async -> [MeetingEvent] {
+        let iso = ISO8601DateFormatter()
+        var all: [MeetingEvent] = []
+        for cal in calendars {
+            var c = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(cal.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cal.id)/events")!
+            c.queryItems = [.init(name: "timeMin", value: iso.string(from: start)), .init(name: "timeMax", value: iso.string(from: end)),
+                            .init(name: "singleEvents", value: "true"), .init(name: "orderBy", value: "startTime"), .init(name: "maxResults", value: "250")]
+            guard let obj = await Self.get(c.url!.absoluteString, token: token), let items = obj["items"] as? [[String: Any]] else { continue }
+            for e in items { if let ev = Self.event(from: e, calendar: cal) { all.append(ev) } }
+        }
+        return all.sorted { $0.startDate < $1.startDate }
+    }
+
+    /// On-demand range query for the month view; empty when not connected.
+    func events(from start: Date, to end: Date) async -> [MeetingEvent] {
+        guard isConnected, let token = await validToken() else { return [] }
+        if calendars.isEmpty { sync() }
+        return await Self.fetch(from: start, to: end, calendars: calendars, token: token)
     }
 
     private static func event(from e: [String: Any], calendar: GoogleCalendar) -> MeetingEvent? {

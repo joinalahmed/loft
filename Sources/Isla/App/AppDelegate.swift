@@ -179,6 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = ScreenshotManager.shared
         _ = CalendarManager.shared
         _ = AudioDeviceManager.shared
+        _ = LockScreenManager.shared
         PrivacyMonitor.shared.start()
         DownloadMonitor.shared.applyPreferences()
         if prefs.remindersEnabled { _ = RemindersManager.shared }
@@ -254,6 +255,7 @@ enum URLSchemeHandler {
         case "open": vm.open(tab: PanelTab(rawValue: q["tab"] ?? ""))
         case "close": vm.close()
         case "toggle": vm.toggle()
+        case "lock": LockScreenManager.shared.lock()
         case "timer":
             if let m = Int(q["minutes"] ?? "") { TimerManager.shared.startCountdown(minutes: m) }
             else if q["action"] == "pomodoro" { TimerManager.shared.startPomodoro() }

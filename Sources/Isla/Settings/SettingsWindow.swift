@@ -177,6 +177,7 @@ struct FeatureSettings: View {
             Toggle("System stats", isOn: $prefs.systemEnabled)
             Toggle("Camera mirror", isOn: $prefs.mirrorEnabled)
             Toggle("Weather", isOn: $prefs.weatherEnabled)
+            Toggle("World clock", isOn: $prefs.worldClockEnabled)
         }
         SettingsSection(title: "Weather") {
             HStack { Text("City"); TextField("Lisbon", text: $prefs.weatherCity).frame(width: 220).onSubmit { WeatherService.shared.refreshIfNeeded(force: true) } }

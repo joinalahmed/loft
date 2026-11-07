@@ -13,23 +13,105 @@ struct HomeTabView: View {
     @ObservedObject var keepAwake = KeepAwakeManager.shared
     @Environment(\.islandTint) private var tint
 
+    private enum CardKind: Hashable { case calendar, reminders, keepAwake, screenshot, timer, weather, clipboard, shelf, battery, system, worldClock, lock }
+
+    /// Only cards for tools that are switched on; order follows the tab order where there is one.
+    private var cards: [CardKind] {
+        var list: [CardKind] = []
+        if prefs.calendarEnabled { list.append(.calendar) }
+        if prefs.remindersEnabled { list.append(.reminders) }
+        list.append(.keepAwake)
+        list.append(.screenshot)
+        if prefs.timerEnabled { list.append(.timer) }
+        if prefs.weatherEnabled { list.append(.weather) }
+        if prefs.worldClockEnabled { list.append(.worldClock) }
+        if prefs.clipboardEnabled { list.append(.clipboard) }
+        if prefs.shelfEnabled { list.append(.shelf) }
+        if prefs.systemEnabled { list.append(.system) }
+        list.append(.battery)
+        return list
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            musicCard.frame(width: 250)
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    if prefs.calendarEnabled { calendarCard } else { batteryCard }
-                    keepAwakeCard
-                    screenshotCard
+        GeometryReader { geo in
+            let showMusic = prefs.musicLiveActivity
+            let gridWidth = showMusic ? geo.size.width - 250 - 10 : geo.size.width
+            // Columns follow the width; rows follow the height; the rest is reachable from the tabs.
+            let columns = max(2, min(4, Int(gridWidth / 150)))
+            let rows = max(1, min(3, Int((geo.size.height + 8) / 95)))
+            let visible = Array(cards.prefix(columns * rows))
+            HStack(spacing: 10) {
+                if showMusic { musicCard.frame(width: 250) }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8) {
+                    ForEach(visible, id: \.self) { kind in
+                        card(kind).frame(height: (geo.size.height - CGFloat(rows - 1) * 8) / CGFloat(rows))
+                    }
                 }
-                HStack(spacing: 8) {
-                    if prefs.timerEnabled { timerCard } else { shelfCard }
-                    if prefs.weatherEnabled { weatherCard } else { batteryCard }
-                    if prefs.clipboardEnabled { clipboardCard } else if prefs.shelfEnabled { shelfCard } else { batteryCard }
-                }
+                .animation(.smooth(duration: 0.25), value: visible)
             }
         }
         .onAppear { if prefs.weatherEnabled { weather.refreshIfNeeded() } }
+    }
+
+    @ViewBuilder private func card(_ kind: CardKind) -> some View {
+        switch kind {
+        case .calendar: calendarCard
+        case .reminders: remindersCard
+        case .keepAwake: keepAwakeCard
+        case .screenshot: screenshotCard
+        case .timer: timerCard
+        case .weather: weatherCard
+        case .clipboard: clipboardCard
+        case .shelf: shelfCard
+        case .battery: batteryCard
+        case .system: systemCard
+        case .worldClock: worldClockCard
+        case .lock: EmptyView()
+        }
+    }
+
+    private var remindersCard: some View {
+        MiniCard(symbol: "checklist", title: "Reminders", color: .orange, action: { vm.tab = .reminders }) {
+            let r = RemindersManager.shared
+            if !r.authorized {
+                Text("Tap to connect").font(.system(size: 11)).foregroundStyle(.secondary)
+            } else if let first = (r.overdue + r.today).first {
+                Text(first.title ?? "Reminder").font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text("\(r.overdue.count + r.today.count) due today" + (r.overdue.isEmpty ? "" : " · \(r.overdue.count) overdue")).font(.system(size: 10)).foregroundStyle(.secondary)
+            } else {
+                Text("All clear").font(.system(size: 12, weight: .semibold))
+                Text("\(r.reminders.count) open").font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var systemCard: some View {
+        MiniCard(symbol: "gauge.with.dots.needle.33percent", title: "System", color: .mint, action: { vm.tab = .system }) {
+            let st = SystemStats.shared
+            Text("CPU \(Int(st.cpu * 100))% · Mem \(Int(st.memoryTotal > 0 ? st.memoryUsed / st.memoryTotal * 100 : 0))%").font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().lineLimit(1)
+            Text(SystemStats.bytes(st.netDown, perSecond: true) + " ↓").font(.system(size: 10)).foregroundStyle(.secondary)
+        }
+    }
+
+    private var worldClockCard: some View {
+        MiniCard(symbol: "globe", title: "World clock", color: .teal, action: { vm.tab = .worldClock }) {
+            let zones = WorldClockStore.shared.zones.prefix(2)
+            if zones.isEmpty {
+                Text("Add cities in the tab").font(.system(size: 11)).foregroundStyle(.secondary)
+            } else {
+                TimelineView(.everyMinute) { ctx in
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(zones)) { z in
+                            HStack {
+                                Text(z.city).font(.system(size: 11, weight: .medium)).lineLimit(1)
+                                Spacer()
+                                Text(z.time(at: ctx.date)).font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: Cards

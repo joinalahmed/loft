@@ -43,6 +43,7 @@ struct IslaApp: App {
                 Button("Full Screen") { ScreenshotManager.shared.capture(.full) }
             }
             Divider()
+            Button("Lock Screen  ⌃⌥Q") { LockScreenManager.shared.lock() }
             Button("Settings…") { SettingsWindowController.shared.show() }
             Button("About Isla") { SettingsWindowController.shared.show(tab: .about) }
             Divider()

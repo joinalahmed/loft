@@ -48,7 +48,7 @@ struct CommandPaletteView: View {
             PaletteAction(title: "Toggle clock in pill", symbol: "clock", keywords: "time") { prefs.showClockInPill.toggle() },
             PaletteAction(title: "Hide Isla", symbol: "eye.slash", keywords: "hide") { vm.isHidden = true },
             PaletteAction(title: "Settings…", symbol: "gearshape", keywords: "preferences") { SettingsWindowController.shared.show() },
-            PaletteAction(title: "Lock screen", symbol: "lock.fill", keywords: "lock") { lockScreen() },
+            PaletteAction(title: "Lock screen", symbol: "lock.fill", keywords: "lock sleep away") { LockScreenManager.shared.lock() },
             PaletteAction(title: "Empty Trash", symbol: "trash.slash", keywords: "finder") { _ = AppleScriptRunner.run("tell application \"Finder\" to empty trash") },
             PaletteAction(title: "Quit Isla", symbol: "power", keywords: "exit") { NSApp.terminate(nil) },
         ]
@@ -130,14 +130,5 @@ struct CommandPaletteView: View {
         var it = s.makeIterator()
         for ch in q { var found = false; while let c = it.next() { if c == ch { found = true; break } }; if !found { return false } }
         return true
-    }
-
-    private func lockScreen() {
-        // Same as ⌃⌘Q.
-        let src = CGEventSource(stateID: .combinedSessionState)
-        let down = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: true)
-        let up = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: false)
-        down?.flags = [.maskCommand, .maskControl]; up?.flags = [.maskCommand, .maskControl]
-        down?.post(tap: .cghidEventTap); up?.post(tap: .cghidEventTap)
     }
 }

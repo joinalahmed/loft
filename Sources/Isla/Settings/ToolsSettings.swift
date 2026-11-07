@@ -48,6 +48,19 @@ struct ToolsSettings: View {
             toolToggle("Command palette", "⌘K inside the panel, ⌃⌥K anywhere", "command", $prefs.headerPalette)
             toolToggle("Screenshot", "Region capture; right-click for window, full screen, OCR, colour picker", "camera.viewfinder", $prefs.headerScreenshot)
             toolToggle("Keep awake", "Toggle; right-click for durations", "cup.and.saucer", $prefs.headerKeepAwake)
+            toolToggle("Lock screen", "One tap locks the Mac (also ⌃⌥Q, palette, menu bar)", "lock", $prefs.headerLock)
+        }
+
+        SettingsSection(title: "Lock screen", footer: "Widgets float a clock-side strip with Now Playing, the next meeting and battery above the lock screen. macOS only allows this on some versions; use Preview to check on yours.") {
+            toolToggle("Pause music when the screen locks", "Resumes on unlock if enabled below", "pause.circle", $prefs.pauseMusicOnLock)
+            toolToggle("Resume music on unlock", "Only what Isla paused", "play.circle", $prefs.resumeMusicOnUnlock)
+            toolToggle("Turn keep-awake off when locking", "A locked Mac may sleep", "cup.and.saucer", $prefs.releaseKeepAwakeOnLock)
+            toolToggle("Welcome-back island", "Time away and the next meeting after unlocking", "lock.open", $prefs.welcomeBackIsland)
+            toolToggle("Lock-screen widgets (experimental)", "Now Playing, next meeting, battery above the lock screen", "lock.display", $prefs.lockScreenWidgets)
+            HStack {
+                Button("Preview widgets for 5 s") { LockScreenManager.shared.previewWidgets() }
+                Button("Lock now") { LockScreenManager.shared.lock() }
+            }.controlSize(.small)
         }
 
         SettingsSection(title: "Pill & alerts", footer: "Things Isla shows without opening the panel.") {

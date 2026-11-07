@@ -14,7 +14,7 @@ struct PanelHeaderView: View {
         // tabs flow left of the notch, continue right of it, and the tools sit at the far right.
         GeometryReader { geo in
             let gap = vm.metrics.hasNotch ? vm.notchWidth + 12 : 0
-            let toolCount = 1 + (prefs.headerPalette ? 1 : 0) + (prefs.headerScreenshot ? 1 : 0) + (prefs.headerKeepAwake ? 1 : 0)
+            let toolCount = 1 + (prefs.headerPalette ? 1 : 0) + (prefs.headerScreenshot ? 1 : 0) + (prefs.headerKeepAwake ? 1 : 0) + (prefs.headerLock ? 1 : 0)
             let toolsWidth: CGFloat = CGFloat(toolCount) * 24 + 6 + 8
             let leftWidth = max(60, (geo.size.width - gap) / 2 - 4)
             let rightWidth = max(0, geo.size.width - leftWidth - gap - toolsWidth - 8)
@@ -63,6 +63,9 @@ struct PanelHeaderView: View {
                         }
                         if keepAwake.isActive { Divider(); Button("Turn Off") { keepAwake.release() } }
                     }
+                }
+                if prefs.headerLock {
+                    HeaderIcon(symbol: "lock.fill", help: "Lock screen (⌃⌥Q)") { LockScreenManager.shared.lock() }
                 }
                 HeaderIcon(symbol: "gearshape.fill", help: "Settings") { SettingsWindowController.shared.show() }
             }
@@ -220,6 +223,7 @@ struct PanelContentView: View {
                 case .system: SystemTabView()
                 case .mirror: MirrorTabView()
                 case .weather: WeatherTabView()
+                case .worldClock: WorldClockTabView()
                 }
             }
             .id(vm.tab)

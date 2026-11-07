@@ -33,6 +33,7 @@ final class HotKeyManager: ObservableObject {
             Binding(id: 14, keyCode: UInt32(kVK_ANSI_O), modifiers: ctrlOpt, title: "⌃⌥O  Copy text from screen (OCR)") { ToolsManager.shared.captureText() },
             Binding(id: 15, keyCode: UInt32(kVK_ANSI_L), modifiers: ctrlOpt, title: "⌃⌥L  App launcher") { vm.open(tab: .launcher, focus: true) },
             Binding(id: 16, keyCode: UInt32(kVK_ANSI_Grave), modifiers: ctrlOpt, title: "⌃⌥`  Terminal") { vm.state == .open && vm.tab == .terminal ? vm.close() : vm.open(tab: .terminal, focus: true) },
+            Binding(id: 17, keyCode: UInt32(kVK_ANSI_Q), modifiers: ctrlOpt, title: "⌃⌥Q  Lock screen") { LockScreenManager.shared.lock() },
         ]
         installHandler()
         applyPreferences()

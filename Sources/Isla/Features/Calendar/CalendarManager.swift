@@ -65,6 +65,7 @@ final class CalendarManager: ObservableObject {
         } else { appleEvents = [] }
         GoogleCalendarService.shared.sync()
         mergeSources()
+        if !browsed.isEmpty { browsed.removeAll(); loadMonth(containing: Date()) }
     }
 
     /// Called by either source after it refreshes. Drops Google events that also arrive via a
@@ -78,6 +79,46 @@ final class CalendarManager: ObservableObject {
         events = merged.sorted { $0.startDate < $1.startDate }
         tick()
     }
+
+    // MARK: Browsing other days (month view)
+
+    @Published private(set) var browsed: [String: [MeetingEvent]] = [:]   // "yyyy-MM" → events in that month
+    private var browsing: Set<String> = []
+
+    static func monthKey(_ date: Date) -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM"; return f.string(from: date) }
+
+    /// Loads a whole month (Apple + Google, deduped) once; the view reads `browsed`.
+    func loadMonth(containing date: Date, force: Bool = false) {
+        let key = Self.monthKey(date)
+        guard force || (browsed[key] == nil && !browsing.contains(key)) else { return }
+        browsing.insert(key)
+        let cal = Calendar.current
+        let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
+        let end = cal.date(byAdding: .month, value: 1, to: start)!
+        var apple: [MeetingEvent] = []
+        if authorized {
+            apple = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil)).map(MeetingEvent.init)
+        }
+        Task { [weak self] in
+            let google = await GoogleCalendarService.shared.events(from: start, to: end)
+            guard let self else { return }
+            var seen = Set(apple.map(\.dedupeKey)); var merged = apple
+            for ev in google where !seen.contains(ev.dedupeKey) { seen.insert(ev.dedupeKey); merged.append(ev) }
+            self.browsed[key] = merged.sorted { $0.startDate < $1.startDate }
+            self.browsing.remove(key)
+        }
+    }
+
+    func events(on day: Date) -> [MeetingEvent] {
+        let cal = Calendar.current
+        if cal.isDateInToday(day) { return todayEvents }
+        return (browsed[Self.monthKey(day)] ?? []).filter { ev in
+            ev.isAllDay ? (cal.isDate(ev.startDate, inSameDayAs: day) || (ev.startDate < day && ev.endDate > cal.startOfDay(for: day).addingTimeInterval(1)))
+                        : cal.isDate(ev.startDate, inSameDayAs: day)
+        }
+    }
+
+    func hasEvents(on day: Date) -> Bool { !events(on: day).isEmpty }
 
     var calendarSources: [String] {
         var names = authorized ? Set(store.calendars(for: .event).map { $0.source.title }) : []

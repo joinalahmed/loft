@@ -19,7 +19,9 @@ final class LocalAPIServer: ObservableObject {
     func applyPreferences() {
         let prefs = Preferences.shared
         if prefs.localAPIEnabled {
-            if !isRunning || port != UInt16(prefs.localAPIPort) { stop(); start(port: UInt16(prefs.localAPIPort)) }
+            // Compare against the listener we own, not `isRunning`: `.ready` arrives a tick later and
+            // a second applyPreferences() in that window used to tear the fresh listener down.
+            if listener == nil || port != UInt16(prefs.localAPIPort) { stop(); start(port: UInt16(prefs.localAPIPort)) }
         } else { stop() }
     }
 
@@ -33,8 +35,15 @@ final class LocalAPIServer: ObservableObject {
             l.stateUpdateHandler = { [weak self] state in
                 Task { @MainActor in
                     switch state {
-                    case .ready: self?.isRunning = true; self?.lastError = nil
-                    case .failed(let e): self?.isRunning = false; self?.lastError = e.localizedDescription
+                    case .ready: self?.isRunning = true; self?.lastError = nil; Log.api.info("listening on \(port)")
+                    case .failed(let e):
+                        self?.isRunning = false; self?.lastError = e.localizedDescription
+                        Log.api.error("listener failed: \(e.localizedDescription, privacy: .public) – retrying")
+                        // Port still held by the previous listener; try again shortly.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                            guard let self, self.listener === l, Preferences.shared.localAPIEnabled else { return }
+                            self.stop(); self.start(port: port)
+                        }
                     case .cancelled: self?.isRunning = false
                     default: break
                     }
@@ -167,6 +176,17 @@ final class LocalAPIServer: ObservableObject {
             if let name = req["output"] as? String, let d = devices.first(where: { $0.name.localizedCaseInsensitiveContains(name) }) { AudioDeviceManager.shared.setDefaultOutput(d) }
             return ["ok": true, "outputs": devices.map(\.name), "current": devices.first { $0.id == AudioDeviceManager.shared.defaultOutputID }?.name ?? ""]
         case "colorpicker": ToolsManager.shared.pickColor(); return ["ok": true]
+        case "worldclock":
+            if let add = req["add"] as? String {
+                if TimeZone(identifier: add) != nil { WorldClockStore.shared.add(add) }
+                else if let hit = WorldClockPlaces.search(add).first { WorldClockStore.shared.add(hit.zone, label: hit.label) }
+                else { return ["ok": false, "error": "unknown place"] }
+            }
+            let now = Date()
+            return ["ok": true, "zones": WorldClockStore.shared.zones.map { ["city": $0.city, "zone": $0.identifier, "time": $0.time(at: now), "offset": $0.offsetText(at: now)] }]
+        case "lock":
+            if req["previewWidgets"] as? Bool == true { LockScreenManager.shared.previewWidgets() } else { LockScreenManager.shared.lock() }
+            return ["ok": true, "locked": LockScreenManager.shared.isLocked]
         case "ocr": ToolsManager.shared.captureText(); return ["ok": true]
         case "eject": SystemStats.shared.ejectAll(); return ["ok": true, "volumes": SystemStats.shared.volumes.map(\.name)]
         case "reminders":
