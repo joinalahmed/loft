@@ -85,74 +85,72 @@ struct FullScreenAlertView: View {
     @State private var appeared = false
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.5).ignoresSafeArea().onTapGesture { ctl.dismiss() }
-            card
-                .scaleEffect(appeared ? 1 : 0.94)
-                .opacity(appeared ? 1 : 0)
-                .onAppear { withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { appeared = true } }
+        GeometryReader { geo in
+            // Full-bleed takeover: the whole display dims to a blurred black and the content
+            // scales with the screen, so it cannot be missed and reads from across the room.
+            let scale = max(0.85, min(1.6, geo.size.width / 1440))
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+                Color.black.opacity(0.78).ignoresSafeArea()
+                RadialGradient(colors: [alert.accent.opacity(0.28), .clear], center: .center, startRadius: 0, endRadius: geo.size.width * 0.45)
+                    .ignoresSafeArea().blendMode(.screen)
+                content(scale: scale)
+                    .frame(maxWidth: min(geo.size.width * 0.72, 1100))
+                    .scaleEffect(appeared ? 1 : 0.96)
+                    .opacity(appeared ? 1 : 0)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .contentShape(Rectangle())
+            .onTapGesture { ctl.dismiss() }
+            .onAppear { withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { appeared = true } }
         }
         .preferredColorScheme(.dark)
     }
 
-    private var card: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
+    private func content(scale: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12 * scale) {
                 ZStack {
-                    Circle().fill(alert.accent.opacity(0.18)).frame(width: 34, height: 34)
-                    Image(systemName: alert.symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(alert.accent)
+                    Circle().fill(alert.accent.opacity(0.18)).frame(width: 56 * scale, height: 56 * scale)
+                    Image(systemName: alert.symbol).font(.system(size: 24 * scale, weight: .semibold)).foregroundStyle(alert.accent)
                 }
-                Text(alert.eyebrow).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
-                Spacer()
+                Text(alert.eyebrow).font(.system(size: 18 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
                 if let countdown = alert.countdown {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         Text(countdown())
-                            .font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                            .font(.system(size: 18 * scale, weight: .semibold, design: .rounded)).monospacedDigit()
                             .foregroundStyle(alert.accent)
-                            .padding(.horizontal, 10).frame(height: 26)
+                            .padding(.horizontal, 14 * scale).frame(height: 34 * scale)
                             .background(alert.accent.opacity(0.14), in: Capsule())
                     }
                 }
             }
-            .padding(.bottom, 22)
+            .padding(.bottom, 34 * scale)
 
             Text(alert.title)
-                .font(.system(size: 34, weight: .bold, design: .rounded)).tracking(-0.4)
-                .lineLimit(2).minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(size: 64 * scale, weight: .bold, design: .rounded)).tracking(-1)
+                .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.6)
             if let detail = alert.detail {
-                Text(detail).font(.system(size: 15)).foregroundStyle(.secondary).lineLimit(2).padding(.top, 6)
+                Text(detail).font(.system(size: 24 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.75))
+                    .multilineTextAlignment(.center).lineLimit(2).padding(.top, 14 * scale)
             }
             if let footnote = alert.footnote {
-                Text(footnote).font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary).lineLimit(1).padding(.top, 10)
+                Text(footnote).font(.system(size: 15 * scale, design: .monospaced)).foregroundStyle(.white.opacity(0.4)).lineLimit(1).padding(.top, 18 * scale)
             }
 
-            HStack(spacing: 10) {
-                ForEach(alert.actions.filter { $0.style == .quiet }) { a in AlertButton(action: a, accent: alert.accent) }
-                Spacer(minLength: 0)
-                ForEach(alert.actions.filter { $0.style != .quiet }) { a in AlertButton(action: a, accent: alert.accent) }
+            HStack(spacing: 16 * scale) {
+                ForEach(alert.actions.filter { $0.style == .quiet }) { a in AlertButton(action: a, accent: alert.accent, scale: scale) }
+                ForEach(alert.actions.filter { $0.style != .quiet }) { a in AlertButton(action: a, accent: alert.accent, scale: scale) }
             }
-            .padding(.top, 28)
+            .padding(.top, 56 * scale)
         }
-        .padding(30)
-        .frame(width: 560)
-        .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.ultraThinMaterial)
-            RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color.black.opacity(0.55))
-        }
-        .overlay(alignment: .top) {
-            LinearGradient(colors: [alert.accent.opacity(0), alert.accent, alert.accent.opacity(0)], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 1.5).padding(.horizontal, 60).offset(y: 0.5)
-        }
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 1))
-        .shadow(color: .black.opacity(0.55), radius: 50, y: 24)
-        .shadow(color: alert.accent.opacity(0.15), radius: 80, y: 0)
     }
 }
 
 private struct AlertButton: View {
     let action: FullScreenAlert.Action
     let accent: Color
+    var scale: CGFloat = 1
     @ObservedObject var ctl = FullScreenAlertController.shared
     @State private var hover = false
 
@@ -160,18 +158,18 @@ private struct AlertButton: View {
         let primary = action.style == .primary
         let quiet = action.style == .quiet
         Button { ctl.perform(action) } label: {
-            HStack(spacing: 7) {
-                if let s = action.symbol { Image(systemName: s).font(.system(size: 13, weight: .semibold)) }
-                Text(action.title).font(.system(size: 14, weight: primary ? .semibold : .medium))
+            HStack(spacing: 9 * scale) {
+                if let s = action.symbol { Image(systemName: s).font(.system(size: 17 * scale, weight: .semibold)) }
+                Text(action.title).font(.system(size: 19 * scale, weight: primary ? .semibold : .medium))
                 if let hint = action.hint {
-                    Text(hint).font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .padding(.horizontal, 5).frame(height: 17)
-                        .background((primary ? Color.black : Color.white).opacity(0.14), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    Text(hint).font(.system(size: 12 * scale, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 6 * scale).frame(height: 22 * scale)
+                        .background((primary ? Color.black : Color.white).opacity(0.14), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .opacity(0.9)
                 }
             }
             .foregroundStyle(primary ? .black : .white.opacity(quiet ? 0.65 : 0.92))
-            .padding(.horizontal, primary ? 18 : 14).frame(height: 40)
+            .padding(.horizontal, (primary ? 28 : 22) * scale).frame(height: 56 * scale)
             .background {
                 if primary { Capsule().fill(accent).brightness(hover ? 0.08 : 0) }
                 else if !quiet || hover { Capsule().fill(.white.opacity(hover ? 0.16 : 0.10)) }
