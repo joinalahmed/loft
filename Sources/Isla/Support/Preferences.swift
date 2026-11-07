@@ -130,7 +130,7 @@ final class Preferences: ObservableObject {
 
     // Appearance
     @Stored("closedPillScale") var closedPillScale: Double = 1.0
-    @Stored("panelWidth") var panelWidth: Double = 640
+    @Stored("panelWidth") var panelWidth: Double = 720
     @Stored("panelHeight") var panelHeight: Double = 240
     @Stored("enableShadow") var enableShadow = true
     @Stored("accentTinting") var accentTinting = true

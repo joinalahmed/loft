@@ -10,11 +10,33 @@ struct PanelHeaderView: View {
     @Environment(\.islandTint) private var tint
 
     var body: some View {
-        HStack(spacing: 8) {
-            GeometryReader { geo in
-                tabStrip(fitting: geo.size.width)
-                    .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
+        // The header shares its row with the hardware notch, so nothing may be drawn under it:
+        // tabs flow left of the notch, continue right of it, and the tools sit at the far right.
+        GeometryReader { geo in
+            let gap = vm.metrics.hasNotch ? vm.notchWidth + 12 : 0
+            let toolsWidth: CGFloat = 4 * 24 + 6 + 8
+            let leftWidth = max(60, (geo.size.width - gap) / 2 - 4)
+            let rightWidth = max(0, geo.size.width - leftWidth - gap - toolsWidth - 8)
+            let parts = layout(leftWidth: leftWidth, rightWidth: rightWidth)
+            HStack(spacing: 0) {
+                strip(parts.left, more: parts.right.isEmpty && !parts.overflow.isEmpty ? parts.overflow : [], label: parts.label)
+                    .frame(width: leftWidth, alignment: .leading)
+                Spacer(minLength: gap)
+                if !parts.right.isEmpty {
+                    strip(parts.right, more: parts.overflow, label: parts.label)
+                        .frame(width: rightWidth, alignment: .leading)
+                } else {
+                    Spacer(minLength: 0)
+                }
+                tools.frame(width: toolsWidth, alignment: .trailing)
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .padding(.horizontal, 2)
+        .frame(height: vm.closedHeight)
+    }
+
+    private var tools: some View {
             HStack(spacing: 2) {
                 HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.userInteracted(); vm.paletteVisible.toggle() }
                 HeaderIcon(symbol: "camera.viewfinder", help: "Capture region (⌃⌥⇧4)") { ScreenshotManager.shared.capture(.region) }
@@ -40,9 +62,6 @@ struct PanelHeaderView: View {
             .padding(.horizontal, 3)
             .background(.white.opacity(0.06), in: Capsule())
             .fixedSize()
-        }
-        .padding(.horizontal, 2)
-        .frame(height: vm.closedHeight)
     }
 
     // Width estimates (pt) for the fitting pass; cheaper and steadier than measuring.
@@ -50,31 +69,49 @@ struct PanelHeaderView: View {
         selected ? 36 + CGFloat(tab.title.count) * 6.6 : 28
     }
 
-    private func visibleTabs(fitting available: CGFloat) -> (shown: [PanelTab], overflow: [PanelTab]) {
+    /// Distributes tabs over the two areas beside the notch. The selected tab is always visible
+    /// (with its label when there is room), everything that does not fit goes into a menu.
+    private func layout(leftWidth: CGFloat, rightWidth: CGFloat) -> (left: [PanelTab], right: [PanelTab], overflow: [PanelTab], label: Bool) {
         let all = prefs.enabledTabs
         let selected = all.contains(vm.tab) ? vm.tab : .home
-        var budget = available - 8                                   // strip padding
-        var shown: [PanelTab] = []
-        let total = all.reduce(0) { $0 + width(of: $1, selected: $1 == selected) + 2 }
-        let needsMore = total > budget
-        if needsMore { budget -= 30 }                                // room for the "more" button
-        budget -= width(of: selected, selected: true) + 2            // selected tab is always shown
-        for tab in all where tab != selected {
-            let w = width(of: tab, selected: false) + 2
-            if w <= budget { shown.append(tab); budget -= w } else { break }
+        func fit(label: Bool) -> ([PanelTab], [PanelTab], [PanelTab]) {
+            var remaining = all
+            var left: [PanelTab] = [], right: [PanelTab] = []
+            // Selected first so it is never pushed out.
+            var leftBudget = leftWidth - 8, rightBudget = rightWidth > 40 ? rightWidth - 8 : 0
+            var usedLeft = false
+            for tab in [selected] + remaining.filter({ $0 != selected }) {
+                let w = width(of: tab, selected: label && tab == selected) + 2
+                if w <= leftBudget - (usedLeft ? 0 : 0) { left.append(tab); leftBudget -= w }
+                else if w <= rightBudget { right.append(tab); rightBudget -= w }
+                else { break }
+                usedLeft = true
+                remaining.removeAll { $0 == tab }
+            }
+            var overflow = all.filter { !left.contains($0) && !right.contains($0) }
+            // Make room for the "more" button where it will be drawn.
+            if !overflow.isEmpty {
+                if right.isEmpty {
+                    while leftBudget < 30, left.count > 1 { let t = left.removeLast(); overflow.insert(t, at: 0); leftBudget += width(of: t, selected: false) + 2 }
+                } else {
+                    while rightBudget < 30, right.count > 0 { let t = right.removeLast(); overflow.insert(t, at: 0); rightBudget += width(of: t, selected: false) + 2 }
+                }
+            }
+            // Restore the user's order inside each segment.
+            left = all.filter { left.contains($0) }; right = all.filter { right.contains($0) }
+            overflow = all.filter { !left.contains($0) && !right.contains($0) }
+            return (left, right, overflow)
         }
-        // Keep the user's order with the selected tab in its own slot.
-        var ordered = all.filter { shown.contains($0) || $0 == selected }
-        if !ordered.contains(selected) { ordered.append(selected) }
-        let overflow = all.filter { !ordered.contains($0) }
-        return (ordered, overflow)
+        var label = true
+        var (left, right, overflow) = fit(label: true)
+        if left.count + right.count < min(5, all.count) { label = false; (left, right, overflow) = fit(label: false) }
+        return (left, right, overflow, label)
     }
 
-    @ViewBuilder private func tabStrip(fitting available: CGFloat) -> some View {
-        let parts = visibleTabs(fitting: available)
+    @ViewBuilder private func strip(_ tabs: [PanelTab], more: [PanelTab], label: Bool) -> some View {
         HStack(spacing: 2) {
-            ForEach(parts.shown) { tab in
-                TabButton(tab: tab, selected: vm.tab == tab, tint: tint) {
+            ForEach(tabs) { tab in
+                TabButton(tab: tab, selected: vm.tab == tab, showLabel: label, tint: tint) {
                     withAnimation(.smooth(duration: 0.25)) { vm.tab = tab }
                 }
                 .contextMenu {
@@ -88,9 +125,9 @@ struct PanelHeaderView: View {
                     Button("Choose Tabs…") { SettingsWindowController.shared.show(tab: .features) }
                 }
             }
-            if !parts.overflow.isEmpty {
+            if !more.isEmpty {
                 Menu {
-                    ForEach(parts.overflow) { tab in
+                    ForEach(more) { tab in
                         Button { withAnimation(.smooth(duration: 0.25)) { vm.tab = tab } } label: { Label(tab.title, systemImage: tab.symbol) }
                     }
                 } label: {
@@ -102,13 +139,14 @@ struct PanelHeaderView: View {
         }
         .padding(3)
         .background(.white.opacity(0.06), in: Capsule())
-        .animation(.smooth(duration: 0.25), value: parts.shown)
+        .animation(.smooth(duration: 0.25), value: tabs)
     }
 }
 
 struct TabButton: View {
     let tab: PanelTab
     let selected: Bool
+    var showLabel = true
     let tint: Color
     let action: () -> Void
     @State private var hover = false
@@ -116,13 +154,13 @@ struct TabButton: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: tab.symbol).font(.system(size: 11, weight: .semibold))
-                if selected {
+                if selected && showLabel {
                     Text(tab.title).font(.system(size: 11, weight: .semibold)).fixedSize()
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
             }
             .foregroundStyle(selected ? .black : (hover ? .white : .white.opacity(0.65)))
-            .padding(.horizontal, selected ? 10 : 8).frame(height: 22)
+            .padding(.horizontal, selected && showLabel ? 10 : 8).frame(height: 22)
             .background {
                 if selected { Capsule().fill(tint).shadow(color: tint.opacity(0.35), radius: 6, y: 1) }
                 else if hover { Capsule().fill(.white.opacity(0.12)) }
