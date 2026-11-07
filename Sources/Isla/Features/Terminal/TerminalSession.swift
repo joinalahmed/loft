@@ -80,21 +80,24 @@ final class TerminalSession: ObservableObject {
     nonisolated private static func rcDirectory() -> URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Isla/zsh")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // zsh re-reads ZDOTDIR before each startup file, so it must stay ours until .zshrc is done.
         let zshenv = """
-        ZDOTDIR=$HOME
+        __isla_zdotdir=$ZDOTDIR
         [[ -r $HOME/.zshenv ]] && source $HOME/.zshenv
+        ZDOTDIR=$__isla_zdotdir
         """
         let zshrc = """
-        ZDOTDIR=$HOME
-        POWERLEVEL9K_INSTANT_PROMPT=off
+        export ISLA_TERMINAL=1
+        typeset -g POWERLEVEL9K_INSTANT_PROMPT=off
         [[ -r $HOME/.zprofile ]] && source $HOME/.zprofile
         [[ -r $HOME/.zshrc ]] && source $HOME/.zshrc
-        # Isla terminal: plain prompt, no right prompt, no prompt theme hooks.
+        # Isla terminal: plain prompt, no right prompt, no prompt-theme hooks (segments do not render in a transcript).
         precmd_functions=() preexec_functions=()
         unset RPROMPT RPS1 RPROMPT2
         PROMPT=$'%1~ ❯ '
         setopt NO_PROMPT_SP NO_BEEP
-        export ISLA_TERMINAL=1
+        ZDOTDIR=$HOME
+        printf '\\e]isla-clear\\a'
         """
         for (name, body) in [(".zshenv", zshenv), (".zshrc", zshrc)] {
             let url = dir.appendingPathComponent(name)
@@ -106,6 +109,10 @@ final class TerminalSession: ObservableObject {
     // MARK: Transcript
 
     private func append(_ raw: String) {
+        var raw = raw
+        if let r = raw.range(of: "\u{1B}]isla-clear\u{07}") {      // emitted by our .zshrc once startup noise is over
+            lines.removeAll(); partial = ""; raw = String(raw[r.upperBound...])
+        }
         let ns = raw as NSString
         var text = Self.csi.stringByReplacingMatches(in: raw, range: NSRange(location: 0, length: ns.length), withTemplate: "")
         text = text.replacingOccurrences(of: "\r\n", with: "\n")
