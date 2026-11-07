@@ -3,7 +3,7 @@ import AppKit
 
 /// Global hotkeys via Carbon's RegisterEventHotKey: works without Accessibility.
 @MainActor
-final class HotKeyManager {
+final class HotKeyManager: ObservableObject {
     static let shared = HotKeyManager()
     struct Binding { let id: UInt32; let keyCode: UInt32; let modifiers: UInt32; let title: String; let action: @MainActor () -> Void }
     private var refs: [UInt32: EventHotKeyRef] = [:]
@@ -35,7 +35,20 @@ final class HotKeyManager {
             Binding(id: 16, keyCode: UInt32(kVK_ANSI_Grave), modifiers: ctrlOpt, title: "⌃⌥`  Terminal") { vm.state == .open && vm.tab == .terminal ? vm.close() : vm.open(tab: .terminal, focus: true) },
         ]
         installHandler()
-        for b in bindings { register(b) }
+        applyPreferences()
+    }
+
+    /// Registers every enabled binding and releases disabled ones so other apps can claim them.
+    func applyPreferences() {
+        let disabled = Set(Preferences.shared.disabledHotkeys.map(UInt32.init))
+        for b in bindings {
+            if disabled.contains(b.id) {
+                if let ref = refs.removeValue(forKey: b.id) { UnregisterEventHotKey(ref) }
+            } else if refs[b.id] == nil {
+                register(b)
+            }
+        }
+        objectWillChange.send()
     }
 
     private func installHandler() {

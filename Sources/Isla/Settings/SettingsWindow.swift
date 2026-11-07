@@ -2,13 +2,14 @@ import AppKit
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, appearance, features, music, clipboard, timer, developer, permissions, about
+    case general, appearance, tools, features, music, clipboard, timer, developer, permissions, about
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
     var symbol: String {
         switch self {
         case .general: "gearshape"
         case .appearance: "paintbrush"
+        case .tools: "switch.2"
         case .features: "square.grid.2x2"
         case .music: "music.note"
         case .clipboard: "doc.on.clipboard"
@@ -76,6 +77,7 @@ struct SettingsView: View {
                     switch selection.tab {
                     case .general: GeneralSettings()
                     case .appearance: AppearanceSettings()
+                    case .tools: ToolsSettings()
                     case .features: FeatureSettings()
                     case .music: MusicSettings()
                     case .clipboard: ClipboardSettings()
@@ -98,7 +100,7 @@ struct SettingsView: View {
 
 // MARK: - Sections
 
-private struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
     var footer: String? = nil
     @ViewBuilder var content: Content

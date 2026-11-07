@@ -158,6 +158,10 @@ final class Preferences: ObservableObject {
     @Stored("capsLockHUD") var capsLockHUD = true
     @Stored("lyricsEnabled") var lyricsEnabled = true
     @Stored("terminalEnabled") var terminalEnabled = true
+    @Stored("headerPalette") var headerPalette = true
+    @Stored("headerScreenshot") var headerScreenshot = true
+    @Stored("headerKeepAwake") var headerKeepAwake = true
+    @Stored("disabledHotkeys") var disabledHotkeys: [Int] = []
     @Stored("googleClientID") var googleClientID = ""
     @Stored("googleClientSecret") var googleClientSecret = ""
     @Stored("tabOrder") var tabOrder: [String] = []

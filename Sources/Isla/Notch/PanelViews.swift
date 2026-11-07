@@ -14,7 +14,8 @@ struct PanelHeaderView: View {
         // tabs flow left of the notch, continue right of it, and the tools sit at the far right.
         GeometryReader { geo in
             let gap = vm.metrics.hasNotch ? vm.notchWidth + 12 : 0
-            let toolsWidth: CGFloat = 4 * 24 + 6 + 8
+            let toolCount = 1 + (prefs.headerPalette ? 1 : 0) + (prefs.headerScreenshot ? 1 : 0) + (prefs.headerKeepAwake ? 1 : 0)
+            let toolsWidth: CGFloat = CGFloat(toolCount) * 24 + 6 + 8
             let leftWidth = max(60, (geo.size.width - gap) / 2 - 4)
             let rightWidth = max(0, geo.size.width - leftWidth - gap - toolsWidth - 8)
             let parts = layout(leftWidth: leftWidth, rightWidth: rightWidth)
@@ -38,7 +39,10 @@ struct PanelHeaderView: View {
 
     private var tools: some View {
             HStack(spacing: 2) {
-                HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.userInteracted(); vm.paletteVisible.toggle() }
+                if prefs.headerPalette {
+                    HeaderIcon(symbol: "command", help: "Command palette (⌘K)") { vm.userInteracted(); vm.paletteVisible.toggle() }
+                }
+                if prefs.headerScreenshot {
                 HeaderIcon(symbol: "camera.viewfinder", help: "Capture region (⌃⌥⇧4)") { ScreenshotManager.shared.capture(.region) }
                     .contextMenu {
                         Button("Capture Region") { ScreenshotManager.shared.capture(.region) }
@@ -48,6 +52,8 @@ struct PanelHeaderView: View {
                         Button("Copy Text from Screen (OCR)") { ToolsManager.shared.captureText() }
                         Button("Pick a Colour") { ToolsManager.shared.pickColor() }
                     }
+                }
+                if prefs.headerKeepAwake {
                 HeaderIcon(symbol: keepAwake.isActive ? "cup.and.saucer.fill" : "cup.and.saucer",
                            help: "Keep awake: \(keepAwake.statusText) · right-click for durations",
                            active: keepAwake.isActive) { keepAwake.toggle() }
@@ -57,6 +63,7 @@ struct PanelHeaderView: View {
                         }
                         if keepAwake.isActive { Divider(); Button("Turn Off") { keepAwake.release() } }
                     }
+                }
                 HeaderIcon(symbol: "gearshape.fill", help: "Settings") { SettingsWindowController.shared.show() }
             }
             .padding(.horizontal, 3)
@@ -122,7 +129,7 @@ struct PanelHeaderView: View {
                         Button("Hide \(tab.title)") { if vm.tab == tab { vm.tab = .home }; prefs.setTab(tab, enabled: false) }
                     }
                     Divider()
-                    Button("Choose Tabs…") { SettingsWindowController.shared.show(tab: .features) }
+                    Button("Choose Tabs…") { SettingsWindowController.shared.show(tab: .tools) }
                 }
             }
             if !more.isEmpty {
