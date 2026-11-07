@@ -24,6 +24,7 @@ final class TerminalSession: ObservableObject {
         p.executableURL = URL(fileURLWithPath: "/usr/bin/script")
         p.arguments = ["-q", "/dev/null", "/bin/zsh", "-il"]
         var env = ProcessInfo.processInfo.environment
+        env["ZDOTDIR"] = Self.rcDirectory().path       // user's rc files + a plain prompt
         env["TERM"] = "dumb"; env["COLUMNS"] = "110"; env["LINES"] = "14"
         env["PAGER"] = "cat"; env["GIT_PAGER"] = "cat"; env["CLICOLOR"] = "0"; env["NO_COLOR"] = "1"
         env["ISLA_TERMINAL"] = "1"
@@ -72,6 +73,34 @@ final class TerminalSession: ObservableObject {
     func restart() {
         process?.terminate(); process = nil; input = nil; isRunning = false
         clear(); startIfNeeded()
+    }
+
+    /// A ZDOTDIR that loads the user's own zsh files, then swaps in a plain prompt: powerline
+    /// segments and Nerd Font glyphs from themes like Powerlevel10k do not survive a text transcript.
+    nonisolated private static func rcDirectory() -> URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Isla/zsh")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let zshenv = """
+        ZDOTDIR=$HOME
+        [[ -r $HOME/.zshenv ]] && source $HOME/.zshenv
+        """
+        let zshrc = """
+        ZDOTDIR=$HOME
+        POWERLEVEL9K_INSTANT_PROMPT=off
+        [[ -r $HOME/.zprofile ]] && source $HOME/.zprofile
+        [[ -r $HOME/.zshrc ]] && source $HOME/.zshrc
+        # Isla terminal: plain prompt, no right prompt, no prompt theme hooks.
+        precmd_functions=() preexec_functions=()
+        unset RPROMPT RPS1 RPROMPT2
+        PROMPT=$'%1~ ❯ '
+        setopt NO_PROMPT_SP NO_BEEP
+        export ISLA_TERMINAL=1
+        """
+        for (name, body) in [(".zshenv", zshenv), (".zshrc", zshrc)] {
+            let url = dir.appendingPathComponent(name)
+            if (try? String(contentsOf: url, encoding: .utf8)) != body { try? body.write(to: url, atomically: true, encoding: .utf8) }
+        }
+        return dir
     }
 
     // MARK: Transcript
