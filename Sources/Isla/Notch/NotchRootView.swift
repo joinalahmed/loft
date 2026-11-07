@@ -25,7 +25,7 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 0)
-        .opacity(vm.effectivelyHidden ? 0 : (prefs.invisibleUntilHover && !vm.isHovering && !isOpen && vm.transient == nil && !music.isPlaying ? 0.001 : 1))
+        .opacity(vm.isHidden ? 0 : (vm.suppressed && !vm.isHovering && !isOpen && vm.transient == nil) ? 0.001 : (prefs.invisibleUntilHover && !vm.isHovering && !isOpen && vm.transient == nil && !music.isPlaying ? 0.001 : 1))
         .preferredColorScheme(.dark)
         .environment(\.islandTint, tint)
         .onDrop(of: [.fileURL, .url, .image, .utf8PlainText], isTargeted: $dropHighlight) { providers in

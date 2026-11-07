@@ -122,7 +122,7 @@ struct GeneralSettings: View {
     @ObservedObject var prefs = Preferences.shared
     var body: some View {
         SettingsSection(title: "Behavior") {
-            Toggle("Hide the island while an app is full screen", isOn: $prefs.hideInFullscreen)
+            Toggle("Fade the island out while an app is full screen (hover the notch to bring it back)", isOn: $prefs.hideInFullscreen)
             Toggle("Show the next meeting in the menu bar", isOn: $prefs.menuBarNextMeeting)
             Toggle("Open when hovering the notch", isOn: $prefs.openOnHover)
             HStack {

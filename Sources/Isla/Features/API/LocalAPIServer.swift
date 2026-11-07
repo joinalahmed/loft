@@ -247,7 +247,15 @@ final class LocalAPIServer: ObservableObject {
                 let pt = CGPoint(x: cv.bounds.midX + 100, y: cv.bounds.midY)
                 hit = String(describing: type(of: cv.hitTest(pt) as Any))
             }
-            return ["ok": true, "appActive": NSApp.isActive, "keyWindow": NSApp.keyWindow?.identifier?.rawValue ?? String(describing: NSApp.keyWindow.map { type(of: $0) }),
+            var hits: [String: Any] = [:]
+            if let nw = NSApp.windows.first(where: { $0 is NotchWindow }), let cv = nw.contentView {
+                // Window-space probes: island centre (top middle) and the far-left margin.
+                let top = cv.bounds.height - 10
+                let centre = NSPoint(x: cv.bounds.midX, y: top), margin = NSPoint(x: 10, y: top)
+                hits = ["islandFrame": NSStringFromRect(vm.islandFrame), "flipped": cv.isFlipped,
+                        "hitCentre": cv.hitTest(centre) != nil, "hitMargin": cv.hitTest(margin) != nil]
+            }
+            return ["ok": true, "hits": hits, "suppressed": vm.suppressed, "hidden": vm.isHidden, "frontmost": NSWorkspace.shared.frontmostApplication?.localizedName ?? "", "appActive": NSApp.isActive, "keyWindow": NSApp.keyWindow?.identifier?.rawValue ?? String(describing: NSApp.keyWindow.map { type(of: $0) }),
                     "notchFrame": NSStringFromRect(NSApp.windows.first { $0 is NotchWindow }?.frame ?? .zero),
                     "settingsVisible": settings?.isVisible ?? false, "settingsKey": settings?.isKeyWindow ?? false,
                     "settingsFrame": settings.map { NSStringFromRect($0.frame) } ?? "", "settingsHit": hit,

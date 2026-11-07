@@ -40,7 +40,7 @@ final class NotchWindow: NSPanel {
 final class IslandHostingView: NSHostingView<NotchRootView> {
     override func hitTest(_ point: NSPoint) -> NSView? {
         let vm = MainActor.assumeIsolated { NotchViewModel.shared }
-        guard !MainActor.assumeIsolated({ vm.effectivelyHidden }) else { return nil }
+        guard !MainActor.assumeIsolated({ vm.isHidden }) else { return nil }
         var p = convert(point, from: superview)
         if !isFlipped { p.y = bounds.height - p.y }
         let frame = vm.islandFrame.isEmpty ? bounds : vm.islandFrame.insetBy(dx: -4, dy: -4)

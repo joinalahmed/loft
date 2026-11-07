@@ -33,8 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.applyPreferences() }
             .store(in: &cancellables)
 
-        vm.$isHidden.combineLatest(vm.$suppressed).sink { [weak self] hidden, suppressed in
-            self?.window?.ignoresMouseEvents = hidden || suppressed
+        vm.$isHidden.sink { [weak self] hidden in
+            self?.window?.ignoresMouseEvents = hidden          // full-screen suppression keeps hover alive
         }.store(in: &cancellables)
         let ws = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
