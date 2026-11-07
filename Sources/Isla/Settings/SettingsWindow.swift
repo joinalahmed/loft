@@ -407,7 +407,14 @@ struct GoogleCalendarSettings: View {
                     }
                 }
             } else {
-                HStack { Text("Client ID"); TextField("…apps.googleusercontent.com", text: $prefs.googleClientID).frame(width: 360) }
+                HStack {
+                    Text("Client ID")
+                    TextField("…apps.googleusercontent.com", text: $prefs.googleClientID).frame(width: 360)
+                        .onSubmit { prefs.googleClientID = GoogleCalendarService.sanitizeClientID(prefs.googleClientID) }
+                }
+                if prefs.googleClientID != GoogleCalendarService.sanitizeClientID(prefs.googleClientID) {
+                    Label("Will use: \(GoogleCalendarService.sanitizeClientID(prefs.googleClientID))", systemImage: "wand.and.stars").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
                 HStack {
                     Text("Client secret")
                     if showSecret { TextField("optional for Desktop clients", text: $prefs.googleClientSecret).frame(width: 300) }
@@ -416,7 +423,7 @@ struct GoogleCalendarSettings: View {
                 }
                 HStack(spacing: 10) {
                     Button(google.isConnecting ? "Waiting for Google…" : "Connect Google Account") { google.connect() }
-                        .buttonStyle(.borderedProminent).disabled(google.isConnecting || prefs.googleClientID.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .buttonStyle(.borderedProminent).disabled(google.isConnecting || !google.clientID.hasSuffix(".apps.googleusercontent.com"))
                     Button("Open Google Cloud Console") { NSWorkspace.shared.open(URL(string: "https://console.cloud.google.com/apis/credentials")!) }
                 }
             }

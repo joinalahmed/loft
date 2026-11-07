@@ -30,6 +30,19 @@ final class GoogleCalendarService: ObservableObject {
     private let scopes = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email"
     private var prefs: Preferences { Preferences.shared }
 
+    /// The pasted value often carries duplicates, newlines or a label; keep only the first real ID.
+    static func sanitizeClientID(_ raw: String) -> String {
+        let pattern = #"[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com"#
+        if let r = raw.range(of: pattern, options: .regularExpression) { return String(raw[r]) }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    var clientID: String { Self.sanitizeClientID(prefs.googleClientID) }
+    var clientSecret: String {
+        let s = prefs.googleClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let r = s.range(of: #"GOCSPX-[A-Za-z0-9_\-]+"#, options: .regularExpression) { return String(s[r]) }
+        return s
+    }
+
     private init() {
         accountEmail = UserDefaults.standard.string(forKey: "googleAccountEmail") ?? ""
         isConnected = Keychain.get("google.refreshToken") != nil
@@ -40,8 +53,8 @@ final class GoogleCalendarService: ObservableObject {
     // MARK: Connect / disconnect
 
     func connect() {
-        let clientID = prefs.googleClientID.trimmingCharacters(in: .whitespaces)
-        guard !clientID.isEmpty else { lastError = "Paste the OAuth client ID first."; return }
+        let clientID = self.clientID
+        guard clientID.hasSuffix(".apps.googleusercontent.com") else { lastError = "That does not look like an OAuth client ID (…apps.googleusercontent.com)."; return }
         lastError = nil; isConnecting = true
         pendingVerifier = Self.randomString(64)
         pendingState = Self.randomString(16)
@@ -53,6 +66,7 @@ final class GoogleCalendarService: ObservableObject {
                 guard case .ready = state, let port = l.port?.rawValue else { return }
                 Task { @MainActor in
                     guard let self else { return }
+                    self.redirectPort = port
                     var c = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
                     c.queryItems = [
                         .init(name: "client_id", value: clientID), .init(name: "redirect_uri", value: "http://127.0.0.1:\(port)"),
@@ -95,17 +109,16 @@ final class GoogleCalendarService: ObservableObject {
                 conn.send(content: Data(response.utf8), completion: .contentProcessed { _ in conn.cancel() })
                 self.listener?.cancel(); self.listener = nil
                 guard ok, let code else { self.isConnecting = false; self.lastError = "Google did not return a code."; return }
-                await self.exchange(code: code, redirect: "http://127.0.0.1:\(line.contains("127.0.0.1") ? "" : "")")
+                await self.exchange(code: code)
             }
         }
     }
 
-    private func exchange(code: String, redirect: String) async {
-        // Redirect URI must match exactly; rebuild from the port the listener used.
-        let port = redirectPort
-        var form = ["code": code, "client_id": prefs.googleClientID.trimmingCharacters(in: .whitespaces), "code_verifier": pendingVerifier,
+    private func exchange(code: String) async {
+        let port = redirectPort   // the redirect URI must match the one in the auth request exactly
+        var form = ["code": code, "client_id": clientID, "code_verifier": pendingVerifier,
                     "grant_type": "authorization_code", "redirect_uri": "http://127.0.0.1:\(port)"]
-        let secret = prefs.googleClientSecret.trimmingCharacters(in: .whitespaces)
+        let secret = clientSecret
         if !secret.isEmpty { form["client_secret"] = secret }
         guard let obj = await Self.post("https://oauth2.googleapis.com/token", form: form) else { isConnecting = false; lastError = "Token exchange failed."; return }
         if let err = obj["error_description"] as? String ?? obj["error"] as? String { isConnecting = false; lastError = err; return }
@@ -135,8 +148,8 @@ final class GoogleCalendarService: ObservableObject {
     private func validToken() async -> String? {
         if let t = accessToken, Date() < accessExpiry { return t }
         guard let refresh = Keychain.get("google.refreshToken") else { return nil }
-        var form = ["refresh_token": refresh, "client_id": prefs.googleClientID.trimmingCharacters(in: .whitespaces), "grant_type": "refresh_token"]
-        let secret = prefs.googleClientSecret.trimmingCharacters(in: .whitespaces)
+        var form = ["refresh_token": refresh, "client_id": clientID, "grant_type": "refresh_token"]
+        let secret = clientSecret
         if !secret.isEmpty { form["client_secret"] = secret }
         guard let obj = await Self.post("https://oauth2.googleapis.com/token", form: form), let access = obj["access_token"] as? String else {
             lastError = "Could not refresh the Google token. Reconnect in Settings."
