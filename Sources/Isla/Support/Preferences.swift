@@ -65,7 +65,7 @@ struct AnyEncodable: Encodable {
 }
 
 enum PanelTab: String, CaseIterable, Codable, Identifiable {
-    case home, music, shelf, clipboard, timer, calendar, reminders, notes, launcher, stocks, system, mirror, weather
+    case home, music, shelf, clipboard, timer, calendar, reminders, notes, terminal, launcher, stocks, system, mirror, weather
     var id: String { rawValue }
 
     var title: String {
@@ -78,6 +78,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .calendar: "Calendar"
         case .reminders: "Reminders"
         case .notes: "Notes"
+        case .terminal: "Terminal"
         case .launcher: "Apps"
         case .stocks: "Stocks"
         case .system: "System"
@@ -96,6 +97,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .calendar: "calendar"
         case .reminders: "checklist"
         case .notes: "note.text"
+        case .terminal: "terminal.fill"
         case .launcher: "square.grid.3x3.fill"
         case .stocks: "chart.line.uptrend.xyaxis"
         case .system: "gauge.with.dots.needle.33percent"
@@ -155,6 +157,13 @@ final class Preferences: ObservableObject {
     @Stored("weatherUseFahrenheit") var weatherUseFahrenheit = false
     @Stored("capsLockHUD") var capsLockHUD = true
     @Stored("lyricsEnabled") var lyricsEnabled = true
+    @Stored("terminalEnabled") var terminalEnabled = true
+    @Stored("googleClientID") var googleClientID = ""
+    @Stored("googleClientSecret") var googleClientSecret = ""
+    @Stored("tabOrder") var tabOrder: [String] = []
+    @Stored("timerFullScreenAlert") var timerFullScreenAlert = true
+    @Stored("reminderAlerts") var reminderAlerts = true
+    @Stored("reminderAlertFullScreen") var reminderAlertFullScreen = true
     @Stored("lyricsShown") var lyricsShown = false        // remembers the Music-tab toggle
     @Stored("downloadsEnabled") var downloadsEnabled = false      // opt-in: needs Downloads folder access
     @Stored("privacyIndicator") var privacyIndicator = true
@@ -199,8 +208,44 @@ final class Preferences: ObservableObject {
     @Stored("localAPIToken") var localAPIToken = ""
     @Stored("urlSchemeEnabled") var urlSchemeEnabled = true
 
+    /// Tabs in the user's order (right-click a tab to move or hide it).
+    var orderedTabs: [PanelTab] {
+        let saved = tabOrder.compactMap(PanelTab.init(rawValue:))
+        return saved + PanelTab.allCases.filter { !saved.contains($0) }
+    }
+
+    func move(_ tab: PanelTab, by delta: Int) {
+        var order = orderedTabs
+        guard let i = order.firstIndex(of: tab) else { return }
+        let visible = enabledTabs
+        guard let vi = visible.firstIndex(of: tab), visible.indices.contains(vi + delta) else { return }
+        let neighbour = visible[vi + delta]
+        guard let j = order.firstIndex(of: neighbour) else { return }
+        order.remove(at: i); order.insert(tab, at: j)
+        tabOrder = order.map(\.rawValue)
+    }
+
+    func setTab(_ tab: PanelTab, enabled: Bool) {
+        switch tab {
+        case .home: break
+        case .music: musicLiveActivity = enabled
+        case .shelf: shelfEnabled = enabled
+        case .clipboard: clipboardEnabled = enabled
+        case .timer: timerEnabled = enabled
+        case .calendar: calendarEnabled = enabled
+        case .reminders: remindersEnabled = enabled
+        case .notes: notesEnabled = enabled
+        case .terminal: terminalEnabled = enabled
+        case .launcher: launcherEnabled = enabled
+        case .stocks: stocksEnabled = enabled
+        case .system: systemEnabled = enabled
+        case .mirror: mirrorEnabled = enabled
+        case .weather: weatherEnabled = enabled
+        }
+    }
+
     var enabledTabs: [PanelTab] {
-        PanelTab.allCases.filter { tab in
+        orderedTabs.filter { tab in
             switch tab {
             case .home: true
             case .music: musicLiveActivity
@@ -210,6 +255,7 @@ final class Preferences: ObservableObject {
             case .calendar: calendarEnabled
             case .reminders: remindersEnabled
             case .notes: notesEnabled
+            case .terminal: terminalEnabled
             case .launcher: launcherEnabled
             case .stocks: stocksEnabled
             case .system: systemEnabled

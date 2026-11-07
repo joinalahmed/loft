@@ -33,14 +33,14 @@ struct CompactRowView: View {
         if let t = vm.transient {
             TransientView(transient: t, side: side)
         } else if let ev = cal.imminentEvent, prefs.calendarEnabled, prefs.meetingAlertsEnabled {
-            let isCall = CalendarManager.isVideoCall(ev)
+            let isCall = ev.isVideoCall
             HStack(spacing: 0) {
                 Image(systemName: isCall ? "video.fill" : "calendar")
                     .font(.system(size: 12, weight: .bold)).foregroundStyle(.green)
                     .frame(width: side).padding(.horizontal, inset)
                 Spacer().frame(width: vm.notchWidth)
                 HStack(spacing: 6) {
-                    Text(ev.title ?? "Meeting").font(.system(size: 12, weight: .semibold)).lineLimit(1).frame(maxWidth: 120, alignment: .leading)
+                    Text(ev.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).frame(maxWidth: 120, alignment: .leading)
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                         let s = Int(ev.startDate.timeIntervalSince(ctx.date))
                         Text(s > 0 ? (s >= 60 ? "\(s / 60)m" : "\(s)s") : "now")
@@ -316,7 +316,8 @@ struct AlbumArtView: View {
     var body: some View {
         ZStack {
             if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                // Fill the square and clip: wide video thumbnails must never spill out of the frame.
+                Color.clear.overlay(Image(nsImage: image).resizable().aspectRatio(contentMode: .fill))
             } else {
                 LinearGradient(colors: [.gray.opacity(0.6), .gray.opacity(0.3)], startPoint: .top, endPoint: .bottom)
                 Image(systemName: "music.note").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.8))

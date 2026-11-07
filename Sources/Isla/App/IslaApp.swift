@@ -12,7 +12,7 @@ struct IslaApp: App {
         guard prefs.menuBarNextMeeting, let ev = calendar.nextEvent, ev.startDate.timeIntervalSinceNow < 8 * 3600 else { return "" }
         let mins = Int(ev.startDate.timeIntervalSinceNow / 60)
         let when = mins <= 0 ? "now" : mins < 60 ? "in \(mins)m" : ev.startDate.shortTime
-        return " " + String((ev.title ?? "Meeting").prefix(24)) + " · " + when
+        return " " + String(ev.title.prefix(24)) + " · " + when
     }
 
     var body: some Scene {
@@ -21,8 +21,8 @@ struct IslaApp: App {
             Button(vm.isHidden ? "Show Isla  ⌥Space" : "Hide Isla  ⌥Space") { vm.isHidden.toggle() }
             Divider()
             if let ev = calendar.nextEvent {
-                Button("Join “\(String((ev.title ?? "Meeting").prefix(30)))”  ⌃⌥M") {
-                    if let url = CalendarManager.joinURL(for: ev) { NSWorkspace.shared.open(url) } else { vm.open(tab: .calendar) }
+                Button("Join “\(String(ev.title.prefix(30)))”  ⌃⌥M") {
+                    if let url = ev.joinURL { NSWorkspace.shared.open(url) } else { vm.open(tab: .calendar) }
                 }
             }
             Button(audio.micMuted ? "Unmute Microphone  ⌃⌥⇧M" : "Mute Microphone  ⌃⌥⇧M") { audio.toggleMicMute() }

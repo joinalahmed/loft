@@ -110,18 +110,51 @@ final class TimerManager: ObservableObject {
         let finishedMode = mode
         if prefs.timerSound { NSSound(named: "Glass")?.play() }
         let vm = NotchViewModel.shared
+        let fullScreen = prefs.timerFullScreenAlert
+        let minutes = Int(total / 60)
         switch finishedMode {
         case .pomodoroWork:
             sessionsToday += 1
             UserDefaults.standard.set(sessionsToday, forKey: "pomodoroSessions.\(TimerManager.dayKey)")
-            vm.show(message: IslandMessage(title: "Focus done · \(sessionsToday) today", subtitle: "Break for \(prefs.pomodoroBreakMinutes) min", symbol: "checkmark.circle.fill", tint: .green), duration: 5)
-            startBreak()
+            if fullScreen {
+                stop()
+                FullScreenAlertController.shared.show(FullScreenAlert(
+                    eyebrow: "Focus session", accent: .green, symbol: "checkmark.circle.fill", title: "Focus complete",
+                    detail: "\(minutes) minutes · \(sessionsToday) session\(sessionsToday == 1 ? "" : "s") today",
+                    footnote: nil, countdown: nil, actions: [
+                        .init(title: "Dismiss", style: .quiet, key: .escape, hint: "esc") {},
+                        .init(title: "Skip break", symbol: "forward.fill", style: .secondary, key: "s", hint: "S") { [weak self] in self?.startPomodoro() },
+                        .init(title: "Start \(prefs.pomodoroBreakMinutes) min break", symbol: "cup.and.saucer.fill", style: .primary, key: .return, hint: "↩") { [weak self] in self?.startBreak() },
+                    ], autoDismiss: 120))
+            } else {
+                vm.show(message: IslandMessage(title: "Focus done · \(sessionsToday) today", subtitle: "Break for \(prefs.pomodoroBreakMinutes) min", symbol: "checkmark.circle.fill", tint: .green), duration: 5)
+                startBreak()
+            }
         case .pomodoroBreak:
-            vm.show(message: IslandMessage(title: "Break over", subtitle: "Back to focus", symbol: "bolt.fill", tint: .orange), duration: 5)
-            startPomodoro()
+            if fullScreen {
+                stop()
+                FullScreenAlertController.shared.show(FullScreenAlert(
+                    eyebrow: "Focus session", accent: .orange, symbol: "bolt.fill", title: "Break over",
+                    detail: "Ready for the next \(prefs.pomodoroWorkMinutes) minutes?", footnote: nil, countdown: nil, actions: [
+                        .init(title: "Stop for now", style: .quiet, key: .escape, hint: "esc") {},
+                        .init(title: "Start focus", symbol: "brain.head.profile", style: .primary, key: .return, hint: "↩") { [weak self] in self?.startPomodoro() },
+                    ], autoDismiss: 120))
+            } else {
+                vm.show(message: IslandMessage(title: "Break over", subtitle: "Back to focus", symbol: "bolt.fill", tint: .orange), duration: 5)
+                startPomodoro()
+            }
         default:
             stop()
-            vm.show(message: IslandMessage(title: "Timer done", subtitle: "\(Int(total / 60)) minutes are up", symbol: "timer", tint: .orange), duration: 6)
+            if fullScreen {
+                FullScreenAlertController.shared.show(FullScreenAlert(
+                    eyebrow: "Timer", accent: .orange, symbol: "timer", title: "Time's up",
+                    detail: "\(minutes) minute\(minutes == 1 ? "" : "s") are over", footnote: nil, countdown: nil, actions: [
+                        .init(title: "Dismiss", style: .quiet, key: .escape, hint: "esc") {},
+                        .init(title: "Another \(minutes) min", symbol: "arrow.counterclockwise", style: .primary, key: .return, hint: "↩") { [weak self] in self?.startCountdown(minutes: max(1, minutes)) },
+                    ], autoDismiss: 120))
+            } else {
+                vm.show(message: IslandMessage(title: "Timer done", subtitle: "\(minutes) minutes are up", symbol: "timer", tint: .orange), duration: 6)
+            }
         }
     }
 }

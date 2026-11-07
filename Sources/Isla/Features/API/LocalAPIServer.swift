@@ -193,7 +193,7 @@ final class LocalAPIServer: ObservableObject {
             case "join": MeetingAlertController.shared.join()
             default:
                 if let ev = CalendarManager.shared.nextEvent {
-                    return ["ok": true, "title": ev.title ?? "", "start": ISO8601DateFormatter().string(from: ev.startDate), "join": CalendarManager.joinURL(for: ev)?.absoluteString ?? ""]
+                    return ["ok": true, "title": ev.title, "start": ISO8601DateFormatter().string(from: ev.startDate), "join": ev.joinURL?.absoluteString ?? "", "source": ev.source.rawValue, "calendar": ev.calendarTitle]
                 }
                 return ["ok": true, "title": ""]
             }
@@ -215,7 +215,7 @@ final class LocalAPIServer: ObservableObject {
             let wantSettings = req["window"] as? String == "settings"
             let wantMeeting = req["window"] as? String == "meeting"
             guard let path = req["path"] as? String,
-                  let window = NSApp.windows.first(where: { wantSettings ? $0.identifier?.rawValue == "isla.settings" : wantMeeting ? ($0.contentView is NSHostingView<MeetingAlertView>) : $0 is NotchWindow }), let view = window.contentView else {
+                  let window = NSApp.windows.first(where: { wantSettings ? $0.identifier?.rawValue == "isla.settings" : wantMeeting ? ($0.contentView is NSHostingView<FullScreenAlertView>) : $0 is NotchWindow }), let view = window.contentView else {
                 return ["ok": false, "error": "no window"]
             }
             view.layoutSubtreeIfNeeded()

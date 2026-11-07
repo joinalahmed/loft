@@ -142,7 +142,9 @@ final class MusicManager: ObservableObject {
         if let v = str("bundleIdentifier") { bundleIdentifier = v ?? "" }
         if let v = payload["duration"] { duration = (v as? Double) ?? 0 }
         if let v = payload["playbackRate"] as? Double { rate = v == 0 ? 1 : v }
-        if let v = payload["playing"] as? Bool {
+        if var v = payload["playing"] as? Bool {
+            // Some browsers report a positive rate with a stale "paused" flag; trust the rate.
+            if !v, let r = payload["playbackRate"] as? Double, r > 0, (payload["elapsedTime"] as? Double).map({ $0 > 0 }) ?? false { v = true }
             if v != isPlaying && !v { elapsedAtUpdate = elapsed }
             isPlaying = v
             updatedAt = Date()

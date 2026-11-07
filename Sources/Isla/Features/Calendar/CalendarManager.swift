@@ -3,15 +3,18 @@ import SwiftUI
 import Combine
 import AppKit
 
+/// Merges Apple Calendar accounts (EventKit) and a directly connected Google account into one
+/// list of `MeetingEvent`s, and raises meeting alerts from it.
 @MainActor
 final class CalendarManager: ObservableObject {
     static let shared = CalendarManager()
-    @Published private(set) var events: [EKEvent] = []
-    @Published private(set) var authorized = false
+    @Published private(set) var events: [MeetingEvent] = []
+    @Published private(set) var authorized = false            // EventKit full access
     @Published private(set) var denied = false
-    @Published private(set) var imminentEvent: EKEvent?     // drives the pill countdown
+    @Published private(set) var imminentEvent: MeetingEvent?  // drives the pill countdown
     @Published private(set) var now = Date()
     private let store = EKEventStore()
+    private var appleEvents: [MeetingEvent] = []
     private var cancellable: AnyCancellable?
     private var refreshTimer: Timer?
     private var tickTimer: Timer?
@@ -30,13 +33,17 @@ final class CalendarManager: ObservableObject {
         }
         tickTimer?.tolerance = 3
         checkStatus()
+        _ = GoogleCalendarService.shared
     }
+
+    /// True when at least one source can deliver events.
+    var hasSource: Bool { authorized || GoogleCalendarService.shared.isConnected }
 
     func checkStatus() {
         let status = EKEventStore.authorizationStatus(for: .event)
         authorized = status == .fullAccess
         denied = status == .denied || status == .restricted || status == .writeOnly
-        if authorized { reload() }
+        if authorized { reload() } else { mergeSources() }
     }
 
     func requestAccess() {
@@ -47,95 +54,91 @@ final class CalendarManager: ObservableObject {
         }
     }
 
-    /// Google, Outlook, iCloud and CalDAV accounts all arrive through EventKit once they are
-    /// added in System Settings → Internet Accounts, so "sync" is free.
+    /// Apple accounts (iCloud, Google-via-macOS, Outlook, CalDAV) arrive through EventKit.
     func reload() {
-        guard authorized else { return }
-        let cal = Calendar.current
-        let start = cal.startOfDay(for: Date())
-        let end = cal.date(byAdding: .day, value: 2, to: start)!
-        let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-        events = store.events(matching: pred).sorted { $0.startDate < $1.startDate }
+        if authorized {
+            let cal = Calendar.current
+            let start = cal.startOfDay(for: Date())
+            let end = cal.date(byAdding: .day, value: 2, to: start)!
+            let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+            appleEvents = store.events(matching: pred).map(MeetingEvent.init)
+        } else { appleEvents = [] }
+        GoogleCalendarService.shared.sync()
+        mergeSources()
+    }
+
+    /// Called by either source after it refreshes. Drops Google events that also arrive via a
+    /// Google account added to macOS, so a meeting never shows (or alerts) twice.
+    func mergeSources() {
+        var seen = Set(appleEvents.map(\.dedupeKey))
+        var merged = appleEvents
+        for ev in GoogleCalendarService.shared.events where !seen.contains(ev.dedupeKey) {
+            seen.insert(ev.dedupeKey); merged.append(ev)
+        }
+        events = merged.sorted { $0.startDate < $1.startDate }
         tick()
     }
 
     var calendarSources: [String] {
-        Array(Set(store.calendars(for: .event).map { $0.source.title })).sorted()
+        var names = authorized ? Set(store.calendars(for: .event).map { $0.source.title }) : []
+        if GoogleCalendarService.shared.isConnected { names.insert("Google" + (GoogleCalendarService.shared.accountEmail.isEmpty ? "" : " (\(GoogleCalendarService.shared.accountEmail))")) }
+        return names.sorted()
     }
 
-    var todayEvents: [EKEvent] { events.filter { Calendar.current.isDateInToday($0.startDate) } }
+    var todayEvents: [MeetingEvent] { events.filter { Calendar.current.isDateInToday($0.startDate) } }
 
-    var nextEvent: EKEvent? { events.first { !$0.isAllDay && $0.endDate > now } }
+    var nextEvent: MeetingEvent? { events.first { !$0.isAllDay && !$0.canceled && !$0.declined && $0.endDate > now } }
 
     // MARK: Meeting alerts
 
     private func tick() {
         now = Date()
-        guard authorized else { imminentEvent = nil; return }
+        guard hasSource else { imminentEvent = nil; return }
         let pillWindow = TimeInterval(prefs.meetingPillMinutes * 60)
         imminentEvent = events.first { ev in
-            !ev.isAllDay && ev.startDate.timeIntervalSince(now) <= pillWindow && ev.endDate > now
+            !ev.isAllDay && !ev.canceled && !ev.declined && ev.startDate.timeIntervalSince(now) <= pillWindow && ev.endDate > now
                 && ev.startDate.timeIntervalSince(now) > -120
         }
         guard prefs.meetingAlertsEnabled else { return }
         let lead = TimeInterval(prefs.meetingLeadMinutes * 60)
-        for ev in events where !ev.isAllDay && ev.status != .canceled {
-            let id = ev.eventIdentifier ?? ev.calendarItemIdentifier
+        for ev in events where !ev.isAllDay && !ev.canceled {
+            let id = ev.id
             let until = ev.startDate.timeIntervalSince(now)
             if let snoozeUntil = snoozed[id] {
                 if now >= snoozeUntil, until > -600 { snoozed[id] = nil; fire(ev) }
                 continue
             }
             guard !alerted.contains(id), until <= lead, until > -60 else { continue }
-            if prefs.meetingAlertOnlyWithLinks && Self.joinURL(for: ev) == nil { continue }
-            if ev.hasAttendees, let me = ev.attendees?.first(where: { $0.isCurrentUser }), me.participantStatus == .declined { continue }
+            if prefs.meetingAlertOnlyWithLinks && ev.joinURL == nil { continue }
+            if ev.declined { continue }
             alerted.insert(id)
             fire(ev)
         }
     }
 
-    private func fire(_ ev: EKEvent) {
+    private func fire(_ ev: MeetingEvent) {
         if prefs.meetingAlertSound { NSSound(named: "Ping")?.play() }
         if prefs.meetingAlertFullScreen {
             MeetingAlertController.shared.show(event: ev)
         } else {
-            let url = Self.joinURL(for: ev)
+            let url = ev.joinURL
             NotchViewModel.shared.show(message: IslandMessage(
-                title: ev.title ?? "Meeting", subtitle: Self.relativeStart(ev), symbol: url == nil ? "calendar" : "video.fill",
+                title: ev.title, subtitle: ev.relativeStart, symbol: url == nil ? "calendar" : "video.fill",
                 tint: .green, action: url.map { u in { NSWorkspace.shared.open(u) } }), duration: 20)
         }
     }
 
-    func snooze(_ ev: EKEvent, minutes: Int = 1) {
-        snoozed[ev.eventIdentifier ?? ev.calendarItemIdentifier] = Date().addingTimeInterval(TimeInterval(minutes * 60))
+    func snooze(_ ev: MeetingEvent, minutes: Int = 1) {
+        snoozed[ev.id] = Date().addingTimeInterval(TimeInterval(minutes * 60))
     }
 
     func testAlert() {
-        let ev = EKEvent(eventStore: store)
-        ev.title = "Design review"
-        ev.startDate = Date().addingTimeInterval(120)
-        ev.endDate = ev.startDate.addingTimeInterval(1800)
-        ev.location = "https://meet.google.com/abc-defg-hij"
-        ev.calendar = store.defaultCalendarForNewEvents ?? store.calendars(for: .event).first
+        let ev = MeetingEvent(id: "test", title: "Design review", startDate: Date().addingTimeInterval(120), endDate: Date().addingTimeInterval(1920),
+                              location: "https://meet.google.com/abc-defg-hij", calendarTitle: "Work", color: .green, attendeeCount: 4, source: .apple)
         fire(ev)
     }
 
-    static func relativeStart(_ ev: EKEvent) -> String {
-        let s = Int(ev.startDate.timeIntervalSinceNow.rounded())
-        if s > 90 { return "in \(s / 60) min" }
-        if s > 0 { return "in \(s) s" }
-        if s > -90 { return "starting now" }
-        return "started \(-s / 60) min ago"
-    }
-
-    static func joinURL(for event: EKEvent) -> URL? {
-        var haystack = [event.location ?? "", event.notes ?? "", event.url?.absoluteString ?? ""].joined(separator: " ")
-        haystack = haystack.replacingOccurrences(of: "\n", with: " ")
-        let pattern = #"https?://[^\s<>"']*(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com|around\.co|facetime\.apple\.com|slack\.com/call|discord\.gg)[^\s<>"']*"#
-        if let r = haystack.range(of: pattern, options: .regularExpression) { return URL(string: String(haystack[r])) }
-        if let url = event.url, ["http", "https"].contains(url.scheme ?? "") { return url }
-        return nil
-    }
-
-    static func isVideoCall(_ event: EKEvent) -> Bool { joinURL(for: event) != nil }
+    static func relativeStart(_ ev: MeetingEvent) -> String { ev.relativeStart }
+    static func joinURL(for ev: MeetingEvent) -> URL? { ev.joinURL }
+    static func isVideoCall(_ ev: MeetingEvent) -> Bool { ev.isVideoCall }
 }

@@ -54,6 +54,8 @@ final class NotchViewModel: ObservableObject {
     @Published var tab: PanelTab = .home
     @Published var metrics = NotchMetrics(hasNotch: true, closedSize: CGSize(width: 222, height: 38), menuBarHeight: 39)
     @Published private(set) var transient: Transient?
+    /// Rendered island frame in hosting-view coordinates; everything outside is click-through.
+    var islandFrame: CGRect = .zero
     @Published var isHidden = false
     /// Set while the frontmost app is full screen and the "hide in fullscreen" preference is on.
     @Published var suppressed = false
@@ -105,7 +107,8 @@ final class NotchViewModel: ObservableObject {
 
     func toggle(focus: Bool = false) { state == .open ? close() : open(focus: focus) }
 
-    /// Called when the user clicks inside the open panel: from then on keys may go to Isla.
+    /// Called when a control that needs typing is used (palette, search). Plain clicks on
+    /// buttons never take the keyboard away from the app underneath.
     func userInteracted() {
         guard !wantsKeyboard else { return }
         wantsKeyboard = true

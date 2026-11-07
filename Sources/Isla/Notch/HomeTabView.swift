@@ -65,13 +65,13 @@ struct HomeTabView: View {
 
     private var calendarCard: some View {
         MiniCard(symbol: "calendar", title: "Up next", color: .red, action: { vm.tab = .calendar }) {
-            if !cal.authorized {
+            if !cal.hasSource {
                 Text("Tap to connect").font(.system(size: 11)).foregroundStyle(.secondary)
             } else if let ev = cal.nextEvent {
-                Text(ev.title ?? "Event").font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(ev.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text(ev.startDate > Date() ? "in \(relative(ev.startDate))" : "now · ends \(ev.endDate.shortTime)")
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                if let url = CalendarManager.joinURL(for: ev) {
+                if let url = ev.joinURL {
                     Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.borderedProminent).tint(.green).controlSize(.mini)
                 }
             } else {
@@ -169,8 +169,14 @@ struct MiniCard<Content: View>: View {
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(8)
-            .background(.white.opacity(hover ? 0.11 : 0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(9)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(LinearGradient(colors: [.white.opacity(hover ? 0.14 : 0.10), .white.opacity(hover ? 0.09 : 0.055)], startPoint: .top, endPoint: .bottom))
+                RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(hover ? color.opacity(0.35) : .white.opacity(0.07), lineWidth: 0.5)
+            }
+            .scaleEffect(hover ? 1.012 : 1)
+            .animation(.smooth(duration: 0.18), value: hover)
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }

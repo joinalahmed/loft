@@ -30,9 +30,10 @@ by a script. macOS 14+, Apple silicon and Intel.
 | Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal; convert / resize / OCR images, zip anything; screenshots land here automatically |
 | Clipboard | searchable history with pins, colours, links, images, files; double-click pastes |
 | Timer | Pomodoro with sessions-per-day, countdown presets, drift-free stopwatch |
-| Calendar | today's events from every synced account (iCloud, Google, Outlook, CalDAV), Join buttons, meeting-alert preview |
+| Calendar | today's events from every macOS account (iCloud, Google, Outlook, CalDAV) **and** a directly connected Google account, Join buttons, meeting-alert preview |
 | Reminders | overdue / today / later from every Reminders list, check off, add with a due date |
 | Notes | one autosaved quick note |
+| Terminal | a real zsh session in the notch (⌃⌥`): history, ⌃C, ⌃L, output transcript |
 | Apps | running apps (switch, hide, quit) and a type-to-launch grid of /Applications (optional) |
 | Stocks | tickers of your choice with day sparkline, from Yahoo Finance (optional) |
 | System | CPU, memory, disk, battery gauges; network rate, Wi-Fi signal / band / link rate, external drives with Eject, cycles, uptime |
@@ -50,7 +51,12 @@ by a script. macOS 14+, Apple silicon and Intel.
 - **Keep awake (caffeine)**: toggle or pick 15 min / 30 min / 1 h / 2 h / 4 h from the header,
   Home card, menu bar, palette or ⌃⌥A; countdown shown on Home; optional display-sleep-only mode.
 - **Calendar sync**: anything in System Settings → Internet Accounts shows up; refreshes on
-  every EventKit change plus every 5 minutes.
+  every EventKit change plus every 5 minutes. **Google Calendar can also be connected directly**
+  (Settings → Features → Google Calendar) with your own OAuth desktop client: PKCE + loopback
+  sign-in, read-only scope, refresh token in the Keychain, duplicates against macOS accounts
+  dropped automatically.
+- **Full-screen alerts everywhere**: the same every-display pop-up (↩ main action · S snooze ·
+  esc dismiss) fires for meetings, finished timers / focus sessions, and due reminders.
 
 - **Tools**: screen colour picker (hex copied, ⌃⌥P), copy-text-from-screen OCR (⌃⌥O), eject all
   drives, mic mute (⌃⌥⇧M), battery low / critical / full alerts with your thresholds.
@@ -92,6 +98,7 @@ System Settings. Sign with a Developer ID to avoid that.
 | ⌃⌥P | pick a colour from the screen |
 | ⌃⌥O | copy text from a screen region (OCR) |
 | ⌃⌥L | app launcher |
+| ⌃⌥` | terminal |
 | ⌃⌥⇧3 / 4 / 5 | screenshot: full screen / region / window |
 | inside the panel | ⌘1–9 tabs · ← → cycle · ⌘K palette · esc close |
 

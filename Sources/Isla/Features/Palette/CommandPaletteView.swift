@@ -32,6 +32,7 @@ struct CommandPaletteView: View {
             PaletteAction(title: "Keep awake for 1 hour", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 60) },
             PaletteAction(title: "Keep awake for 2 hours", symbol: "cup.and.saucer", keywords: "caffeine awake") { KeepAwakeManager.shared.acquire(minutes: 120) },
             PaletteAction(title: AudioDeviceManager.shared.micMuted ? "Unmute microphone" : "Mute microphone", symbol: "mic.slash.fill", keywords: "mic audio call") { AudioDeviceManager.shared.toggleMicMute() },
+            PaletteAction(title: "Open terminal", symbol: "terminal.fill", keywords: "shell zsh command") { vm.tab = .terminal; vm.userInteracted() },
             PaletteAction(title: "Pick a colour from the screen", symbol: "eyedropper.halffull", keywords: "color picker hex") { ToolsManager.shared.pickColor() },
             PaletteAction(title: "Copy text from screen (OCR)", symbol: "text.viewfinder", keywords: "ocr recognize capture") { ToolsManager.shared.captureText() },
             PaletteAction(title: "Eject all external drives", symbol: "eject.fill", keywords: "disk volume usb") { SystemStats.shared.ejectAll() },
@@ -39,7 +40,7 @@ struct CommandPaletteView: View {
             PaletteAction(title: "Screenshot: window", symbol: "macwindow", keywords: "capture screen") { ScreenshotManager.shared.capture(.window) },
             PaletteAction(title: "Screenshot: full screen", symbol: "rectangle.dashed", keywords: "capture screen") { ScreenshotManager.shared.capture(.full) },
             PaletteAction(title: "Join next meeting", symbol: "video.fill", keywords: "calendar zoom meet teams") {
-                if let ev = CalendarManager.shared.nextEvent, let url = CalendarManager.joinURL(for: ev) { NSWorkspace.shared.open(url) } else { vm.tab = .calendar }
+                if let url = CalendarManager.shared.nextEvent?.joinURL { NSWorkspace.shared.open(url) } else { vm.tab = .calendar }
             },
             PaletteAction(title: "Preview meeting alert", symbol: "bell.badge", keywords: "calendar test") { CalendarManager.shared.testAlert() },
             PaletteAction(title: "Clear clipboard history", symbol: "trash", keywords: "clipboard") { ClipboardManager.shared.clear() },

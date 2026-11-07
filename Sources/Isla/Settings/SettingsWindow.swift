@@ -169,6 +169,7 @@ struct FeatureSettings: View {
             Toggle("Calendar", isOn: $prefs.calendarEnabled)
             Toggle("Reminders", isOn: $prefs.remindersEnabled)
             Toggle("Quick notes", isOn: $prefs.notesEnabled)
+            Toggle("Terminal (zsh in the notch, ⌃⌥`)", isOn: $prefs.terminalEnabled)
             Toggle("App launcher", isOn: $prefs.launcherEnabled)
             Toggle("Stocks", isOn: $prefs.stocksEnabled)
             Toggle("System stats", isOn: $prefs.systemEnabled)
@@ -179,6 +180,7 @@ struct FeatureSettings: View {
             HStack { Text("City"); TextField("Lisbon", text: $prefs.weatherCity).frame(width: 220).onSubmit { WeatherService.shared.refreshIfNeeded(force: true) } }
             Toggle("Use Fahrenheit", isOn: $prefs.weatherUseFahrenheit).onChange(of: prefs.weatherUseFahrenheit) { _, _ in WeatherService.shared.refreshIfNeeded(force: true) }
         }
+        GoogleCalendarSettings()
         SettingsSection(title: "Meeting alerts", footer: "Events come from every account added in System Settings → Internet Accounts (iCloud, Google, Outlook, CalDAV). Join links are detected for Zoom, Meet, Teams, Webex, Whereby, FaceTime, Slack and Discord.") {
             Toggle("Alert before meetings", isOn: $prefs.meetingAlertsEnabled)
             Stepper("Alert \(prefs.meetingLeadMinutes) min before", value: $prefs.meetingLeadMinutes, in: 0...30)
@@ -187,6 +189,11 @@ struct FeatureSettings: View {
             Toggle("Play a sound", isOn: $prefs.meetingAlertSound)
             Stepper("Show countdown in the pill \(prefs.meetingPillMinutes) min before", value: $prefs.meetingPillMinutes, in: 1...60)
             Button("Preview alert") { CalendarManager.shared.testAlert() }
+        }
+        SettingsSection(title: "Full-screen alerts", footer: "Timers and due reminders use the same every-display pop-up as meetings. ↩ takes the main action, S snoozes, esc dismisses.") {
+            Toggle("When a timer or focus session ends", isOn: $prefs.timerFullScreenAlert)
+            Toggle("Alert when a reminder is due", isOn: $prefs.reminderAlerts)
+            Toggle("Reminder alerts full screen (otherwise an island)", isOn: $prefs.reminderAlertFullScreen)
         }
         SettingsSection(title: "Screenshots", footer: "Capture uses the system screencapture tool; macOS asks for Screen Recording access the first time. ⌃⌥⇧3 full · ⌃⌥⇧4 region · ⌃⌥⇧5 window.") {
             Toggle("Add screenshots to the shelf", isOn: $prefs.screenshotToShelf)
@@ -367,6 +374,53 @@ struct AboutSettings: View {
                 Text("Weather data by Open-Meteo (CC BY 4.0).")
             }
             Text("Isla is not affiliated with Apple or with Notchy.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+
+/// Direct Google Calendar connection (OAuth desktop client + PKCE), no macOS account needed.
+struct GoogleCalendarSettings: View {
+    @ObservedObject var prefs = Preferences.shared
+    @ObservedObject var google = GoogleCalendarService.shared
+    @State private var showSecret = false
+    var body: some View {
+        SettingsSection(title: "Google Calendar", footer: "Create an OAuth client in Google Cloud Console → APIs & Services → Credentials → “OAuth client ID” → Desktop app, enable the Google Calendar API, add your Gmail address as a test user, then paste the client ID (and secret, if shown) here. Isla only asks for read-only calendar access and your e-mail address; the refresh token is kept in the Keychain.") {
+            if google.isConnected {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(google.accountEmail.isEmpty ? "Connected" : google.accountEmail).font(.system(size: 13, weight: .semibold))
+                        Text("\(google.calendars.count) calendar\(google.calendars.count == 1 ? "" : "s") · \(google.events.count) event\(google.events.count == 1 ? "" : "s") today and tomorrow" + (google.lastSync.map { " · synced \($0.shortTime)" } ?? ""))
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Sync now") { google.sync() }
+                    Button("Disconnect", role: .destructive) { google.disconnect() }
+                }
+                if !google.calendars.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(google.calendars) { c in
+                            HStack(spacing: 4) { Circle().fill(c.color).frame(width: 7, height: 7); Text(c.name).font(.system(size: 10)) }
+                                .padding(.horizontal, 7).frame(height: 20).background(.white.opacity(0.08), in: Capsule())
+                        }
+                    }
+                }
+            } else {
+                HStack { Text("Client ID"); TextField("…apps.googleusercontent.com", text: $prefs.googleClientID).frame(width: 360) }
+                HStack {
+                    Text("Client secret")
+                    if showSecret { TextField("optional for Desktop clients", text: $prefs.googleClientSecret).frame(width: 300) }
+                    else { SecureField("optional for Desktop clients", text: $prefs.googleClientSecret).frame(width: 300) }
+                    Button(showSecret ? "Hide" : "Show") { showSecret.toggle() }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                HStack(spacing: 10) {
+                    Button(google.isConnecting ? "Waiting for Google…" : "Connect Google Account") { google.connect() }
+                        .buttonStyle(.borderedProminent).disabled(google.isConnecting || prefs.googleClientID.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("Open Google Cloud Console") { NSWorkspace.shared.open(URL(string: "https://console.cloud.google.com/apis/credentials")!) }
+                }
+            }
+            if let err = google.lastError { Label(err, systemImage: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(.orange) }
         }
     }
 }

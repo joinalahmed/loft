@@ -26,12 +26,13 @@ final class HotKeyManager {
             Binding(id: 9, keyCode: UInt32(kVK_ANSI_4), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧4  Screenshot: region") { ScreenshotManager.shared.capture(.region) },
             Binding(id: 10, keyCode: UInt32(kVK_ANSI_5), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧5  Screenshot: window") { ScreenshotManager.shared.capture(.window) },
             Binding(id: 11, keyCode: UInt32(kVK_ANSI_M), modifiers: ctrlOpt, title: "⌃⌥M  Join next meeting") {
-                if let ev = CalendarManager.shared.nextEvent, let url = CalendarManager.joinURL(for: ev) { NSWorkspace.shared.open(url) } else { vm.open(tab: .calendar) }
+                if let url = CalendarManager.shared.nextEvent?.joinURL { NSWorkspace.shared.open(url) } else { vm.open(tab: .calendar) }
             },
             Binding(id: 12, keyCode: UInt32(kVK_ANSI_M), modifiers: ctrlOpt | UInt32(shiftKey), title: "⌃⌥⇧M  Mute / unmute microphone") { AudioDeviceManager.shared.toggleMicMute() },
             Binding(id: 13, keyCode: UInt32(kVK_ANSI_P), modifiers: ctrlOpt, title: "⌃⌥P  Pick a colour") { ToolsManager.shared.pickColor() },
             Binding(id: 14, keyCode: UInt32(kVK_ANSI_O), modifiers: ctrlOpt, title: "⌃⌥O  Copy text from screen (OCR)") { ToolsManager.shared.captureText() },
             Binding(id: 15, keyCode: UInt32(kVK_ANSI_L), modifiers: ctrlOpt, title: "⌃⌥L  App launcher") { vm.open(tab: .launcher, focus: true) },
+            Binding(id: 16, keyCode: UInt32(kVK_ANSI_Grave), modifiers: ctrlOpt, title: "⌃⌥`  Terminal") { vm.state == .open && vm.tab == .terminal ? vm.close() : vm.open(tab: .terminal, focus: true) },
         ]
         installHandler()
         for b in bindings { register(b) }

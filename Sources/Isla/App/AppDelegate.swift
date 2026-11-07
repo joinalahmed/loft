@@ -5,7 +5,7 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NotchWindow?
-    private var hosting: NSHostingView<NotchRootView>?
+    private var hosting: IslandHostingView?
     private var cancellables = Set<AnyCancellable>()
     private var clickMonitor: Any?
     private var keyMonitor: Any?
@@ -67,7 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let screen = NSScreen.preferredNotchScreen ?? NSScreen.screens[0]
         vm.updateMetrics(for: screen)
         let w = NotchWindow(contentRect: windowFrame(on: screen, expanded: false))
-        let host = NSHostingView(rootView: NotchRootView())
+        let host = IslandHostingView(rootView: NotchRootView())
         host.wantsLayer = true
         host.layer?.backgroundColor = .clear
         w.contentView = host
@@ -82,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func windowFrame(on screen: NSScreen, expanded: Bool) -> NSRect {
         let pad: CGFloat = 40
         let width = max(prefs.panelWidth, 760) + pad * 2
-        let height = expanded ? prefs.panelHeight + pad : vm.closedHeight + 28
+        let height = expanded ? prefs.panelHeight + pad : vm.closedHeight + 10   // closed: stay within the menu bar
         return NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
     }
 

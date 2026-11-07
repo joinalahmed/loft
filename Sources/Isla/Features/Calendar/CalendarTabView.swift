@@ -1,22 +1,31 @@
 import SwiftUI
-import EventKit
 
 struct CalendarTabView: View {
     @ObservedObject var cal = CalendarManager.shared
+    @ObservedObject var google = GoogleCalendarService.shared
     @ObservedObject var prefs = Preferences.shared
 
     var body: some View {
-        if !cal.authorized {
-            VStack(spacing: 8) {
-                Image(systemName: "calendar.badge.exclamationmark").font(.system(size: 22)).foregroundStyle(.secondary)
-                Text(cal.denied ? "Calendar access was declined" : "Show today's events in the notch").font(.system(size: 12, weight: .semibold))
-                if cal.denied {
-                    Button("Open Privacy Settings") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!) }
-                } else {
-                    Button("Allow Calendar Access") { cal.requestAccess() }
+        if !cal.hasSource {
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(.white.opacity(0.06)).frame(width: 44, height: 44)
+                    Image(systemName: "calendar.badge.exclamationmark").font(.system(size: 18, weight: .medium)).foregroundStyle(.secondary)
                 }
+                Text(cal.denied ? "Calendar access was declined" : "Show today's meetings in the notch").font(.system(size: 12, weight: .semibold))
+                HStack(spacing: 8) {
+                    if cal.denied {
+                        Button("Open Privacy Settings") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!) }
+                    } else {
+                        Button("Use Apple Calendar") { cal.requestAccess() }
+                    }
+                    Button(google.isConnecting ? "Waiting for Google…" : "Connect Google Calendar") { SettingsWindowController.shared.show(tab: .features) }
+                        .disabled(google.isConnecting)
+                }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                Text("Apple Calendar covers every account in System Settings. Connect Google directly to sync without adding it to macOS.")
+                    .font(.system(size: 10)).foregroundStyle(.tertiary).multilineTextAlignment(.center).frame(maxWidth: 380)
             }
-            .buttonStyle(.borderedProminent).controlSize(.small)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(alignment: .top, spacing: 14) {
@@ -25,7 +34,7 @@ struct CalendarTabView: View {
                     Text(Date(), format: .dateTime.day()).font(.system(size: 42, weight: .bold, design: .rounded))
                     Text(Date(), format: .dateTime.month(.wide)).font(.system(size: 12)).foregroundStyle(.secondary)
                     Spacer()
-                    if let ev = cal.nextEvent, let url = CalendarManager.joinURL(for: ev) {
+                    if let url = cal.nextEvent?.joinURL {
                         Button { NSWorkspace.shared.open(url) } label: { Label("Join next", systemImage: "video.fill") }
                             .buttonStyle(.borderedProminent).tint(.green).controlSize(.small)
                     }
@@ -38,7 +47,7 @@ struct CalendarTabView: View {
                     } else {
                         ScrollView {
                             VStack(spacing: 4) {
-                                ForEach(cal.todayEvents, id: \.eventIdentifier) { ev in EventRow(event: ev) }
+                                ForEach(cal.todayEvents) { ev in EventRow(event: ev) }
                             }
                         }.scrollIndicators(.never)
                     }
@@ -55,24 +64,30 @@ struct CalendarTabView: View {
 }
 
 struct EventRow: View {
-    let event: EKEvent
+    let event: MeetingEvent
     var compact = false
     var body: some View {
         let past = event.endDate < Date()
+        let live = event.startDate <= Date() && !past
         HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2).fill(Color(cgColor: event.calendar.cgColor)).frame(width: 3)
+            RoundedRectangle(cornerRadius: 2).fill(event.color).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title ?? "Untitled").font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                Text(event.isAllDay ? "All day" : "\(event.startDate.shortTime) – \(event.endDate.shortTime)" + (event.location.map { " · \($0)" } ?? ""))
+                HStack(spacing: 5) {
+                    Text(event.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).strikethrough(event.declined || event.canceled)
+                    if live { Circle().fill(.green).frame(width: 5, height: 5) }
+                    if event.source == .google { Image(systemName: "g.circle").font(.system(size: 9)).foregroundStyle(.tertiary) }
+                }
+                Text(event.isAllDay ? "All day" : "\(event.startDate.shortTime) – \(event.endDate.shortTime)" + (event.displayLocation.map { " · \($0)" } ?? "") + (event.attendeeCount > 1 ? " · \(event.attendeeCount) people" : ""))
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            if !past, let url = CalendarManager.joinURL(for: event), !compact {
+            if !past, let url = event.joinURL, !compact {
                 Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.borderedProminent).controlSize(.mini).tint(.green)
             }
         }
         .padding(.horizontal, 6).padding(.vertical, 4)
-        .background(.white.opacity(past ? 0.03 : 0.07), in: RoundedRectangle(cornerRadius: 8))
-        .opacity(past ? 0.6 : 1)
+        .background(.white.opacity(past ? 0.03 : 0.07), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(live ? Color.green.opacity(0.35) : .clear, lineWidth: 0.5))
+        .opacity(past ? 0.55 : 1)
     }
 }
