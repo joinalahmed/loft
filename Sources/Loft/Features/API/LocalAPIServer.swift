@@ -4,8 +4,8 @@ import SwiftUI
 import AppKit
 
 /// Newline-delimited JSON over TCP on 127.0.0.1. Every request carries the token.
-///   echo '{"token":"…","command":"status"}' | nc 127.0.0.1 9999
-///   echo '{"token":"…","title":"Build","subtitle":"Done","progress":1}' | nc 127.0.0.1 9999
+///   echo '{"token":"…","command":"status"}' | nc 127.0.0.1 9191
+///   echo '{"token":"…","title":"Build","subtitle":"Done","progress":1}' | nc 127.0.0.1 9191
 @MainActor
 final class LocalAPIServer: ObservableObject {
     static let shared = LocalAPIServer()
@@ -184,6 +184,7 @@ final class LocalAPIServer: ObservableObject {
             }
             let now = Date()
             return ["ok": true, "zones": WorldClockStore.shared.zones.map { ["city": $0.city, "zone": $0.identifier, "time": $0.time(at: now), "offset": $0.offsetText(at: now)] }]
+        case "demo": Demo.start(); return ["ok": true]
         case "lock":
             if req["previewWidgets"] as? Bool == true { LockScreenManager.shared.previewWidgets() } else { LockScreenManager.shared.lock() }
             return ["ok": true, "locked": LockScreenManager.shared.isLocked]

@@ -39,7 +39,7 @@ Loft asks for a permission only when you enable the feature that needs it (see [
 
 ### Around the notch, while you work
 
-<p align="center"><img src="docs/pill-music.png" width="560" alt="Collapsed island showing album art and audio bars"></p>
+<p align="center"><img src="docs/screenshots/pill.png" width="500" alt="Collapsed island showing album art and audio bars"></p>
 
 - **Now Playing** from Music, Spotify or any app: artwork on the left, live bars on the right, tinted with the album colour.
 - **HUDs** for volume, brightness and Caps Lock that replace the macOS overlay.
@@ -72,8 +72,16 @@ Hover, click, or press `⌃⌥N`. Tabs can be switched on, off and reordered in 
 | **Weather** | current conditions and five days, by city, no location permission |
 
 <p align="center">
-  <img src="docs/screenshots/calendar.png" width="372" alt="Month grid with event dots">
-  <img src="docs/screenshots/worldclock.png" width="372" alt="World clock cards">
+  <img src="docs/screenshots/calendar.png" width="372" alt="Calendar tab: month grid with event dots and the day's agenda with Join buttons">
+  <img src="docs/screenshots/worldclock.png" width="372" alt="World Clock tab: cities side by side with day and night tint">
+</p>
+<p align="center">
+  <img src="docs/screenshots/music.png" width="372" alt="Music tab: artwork, scrubber and transport controls">
+  <img src="docs/screenshots/clipboard.png" width="372" alt="Clipboard tab: searchable history with a pinned item, colour and link">
+</p>
+<p align="center">
+  <img src="docs/screenshots/timer.png" width="372" alt="Timer tab: Pomodoro ring with weekly session history">
+  <img src="docs/screenshots/weather.png" width="372" alt="Weather tab: current conditions and five-day forecast">
 </p>
 
 ### Daily drivers, built out in depth
@@ -115,21 +123,21 @@ loft://open?tab=clipboard   loft://close   loft://toggle   loft://lock
 loft://timer?minutes=10     loft://timer?action=pomodoro
 ```
 
-**Local API** (Settings → Developer → Enable local API). Newline-delimited JSON over TCP on `127.0.0.1:9999` with a per-install token:
+**Local API** (Settings → Developer → Enable local API). Newline-delimited JSON over TCP on `127.0.0.1:9191` with a per-install token:
 
 ```sh
 T=$(defaults read dev.joinal.loft localAPIToken)
-echo "{\"token\":\"$T\",\"command\":\"status\"}" | nc 127.0.0.1 9999
-echo "{\"token\":\"$T\",\"title\":\"Tests passed\",\"subtitle\":\"312 green\",\"symbol\":\"checkmark.seal.fill\"}" | nc 127.0.0.1 9999
-echo "{\"token\":\"$T\",\"command\":\"timer\",\"action\":\"countdown\",\"minutes\":25}" | nc 127.0.0.1 9999
-echo "{\"token\":\"$T\",\"command\":\"worldclock\",\"add\":\"Tokyo\"}" | nc 127.0.0.1 9999
+echo "{\"token\":\"$T\",\"command\":\"status\"}" | nc 127.0.0.1 9191
+echo "{\"token\":\"$T\",\"title\":\"Tests passed\",\"subtitle\":\"312 green\",\"symbol\":\"checkmark.seal.fill\"}" | nc 127.0.0.1 9191
+echo "{\"token\":\"$T\",\"command\":\"timer\",\"action\":\"countdown\",\"minutes\":25}" | nc 127.0.0.1 9191
+echo "{\"token\":\"$T\",\"command\":\"worldclock\",\"add\":\"Tokyo\"}" | nc 127.0.0.1 9191
 ```
 
 Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting clipboard shelf volume brightness
 settings snapshot ask mic audio colorpicker ocr eject reminders privacy lyrics calc worldclock lock debug`.
 A request with a `title` and no `command` shows a message island. `ask` blocks until the user taps a button in the pill and replies
-`{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG, which is how every screenshot in this
-README was taken.
+`{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG and `demo` fills the island with sample data; every screenshot in this
+README was taken that way, so none of them shows real data.
 
 **Claude Code hooks** live in `scripts/claude-code/`: `loft-notify.sh` shows Stop and Notification events as islands,
 `loft-approve.sh` turns `PermissionRequest` into an Allow / Deny prompt in the notch. Add them to `~/.claude/settings.json`:
@@ -196,8 +204,14 @@ Sources/Loft/
 
 ## Roadmap
 
-See [`docs/research/notch-apps.md`](docs/research/notch-apps.md) for a survey of the notch-app landscape and the gap
-analysis that drives what comes next. Issues and pull requests are welcome.
+- Live Activities: publish timers, downloads, meetings and agent status through ActivityKit on macOS 27.3+, and keep the geometry notch-agnostic for Macs that ship a Dynamic Island
+- Bluetooth and AirPods connect island with battery levels
+- AI coding agents: Allow / Deny sessions and usage quotas in the pill for Claude Code, Codex and friends
+- Notification mirroring with inline reply
+- Notarised builds and a Homebrew cask
+- Per-app volume, local dictation, teleprompter, localisation
+
+Issues and pull requests are welcome.
 
 ## Acknowledgements
 
@@ -205,6 +219,6 @@ analysis that drives what comes next. Issues and pull requests are welcome.
 - Notch shape adapted from [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) by Kai Azim, MIT
 - Window technique informed by [boring.notch](https://github.com/TheBoredTeam/boring.notch), GPL-3, no code copied
 - Weather by [Open-Meteo](https://open-meteo.com), CC BY 4.0; lyrics by [LRCLIB](https://lrclib.net)
-- Inspired by [Notchy](https://notchy.dev). Loft is not affiliated with Apple or with Notchy.
+- Loft is not affiliated with Apple.
 
 MIT licence. Copyright © 2026 Joinal Ahmed.

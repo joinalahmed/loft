@@ -176,7 +176,10 @@ final class ClipboardManager: ObservableObject {
         items = decoded
     }
 
+    func injectDemo(_ demo: [ClipItem]) { items = demo }
+
     private func save() {
+        guard !Demo.active else { return }
         if let data = try? JSONEncoder().encode(items) { try? data.write(to: file, options: .atomic) }
     }
 }

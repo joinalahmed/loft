@@ -124,7 +124,15 @@ final class MusicManager: ObservableObject {
 
     // MARK: Adapter payload
 
+    func injectDemo(title: String, artist: String, album: String, duration: Double, elapsed: Double, artwork: NSImage, accent: Color) {
+        self.title = title; self.artist = artist; self.album = album; self.duration = duration
+        elapsedAtUpdate = elapsed; updatedAt = Date(); rate = 1
+        self.artwork = artwork; accentColor = accent; lastArtworkHash = -1
+        isPlaying = true; isActive = true; idleTask?.cancel()
+    }
+
     private func apply(update: [String: Any]) {
+        guard !Demo.active else { return }
         let diff = update["diff"] as? Bool ?? false
         guard let payload = update["payload"] as? [String: Any] else {
             if !diff { clearTrack() }

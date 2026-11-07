@@ -66,7 +66,8 @@ final class WorldClockStore: ObservableObject {
     }
     func remove(_ zone: WorldClockZone) { zones.removeAll { $0.id == zone.id } }
     func move(from: IndexSet, to: Int) { zones.move(fromOffsets: from, toOffset: to) }
-    private func save() { if let d = try? JSONEncoder().encode(zones) { UserDefaults.standard.set(d, forKey: key) } }
+    func injectDemo(_ ids: [String]) { zones = ids.map { WorldClockZone(identifier: $0) } }
+    private func save() { guard !Demo.active else { return }; if let d = try? JSONEncoder().encode(zones) { UserDefaults.standard.set(d, forKey: key) } }
 
     /// Searchable list of all zones: "Riyadh", "Asia/Riyadh", "GMT+3".
     static let allIdentifiers: [String] = TimeZone.knownTimeZoneIdentifiers.filter { $0.contains("/") && !$0.hasPrefix("Etc/") }

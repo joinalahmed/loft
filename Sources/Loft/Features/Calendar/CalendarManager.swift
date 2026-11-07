@@ -37,7 +37,13 @@ final class CalendarManager: ObservableObject {
     }
 
     /// True when at least one source can deliver events.
-    var hasSource: Bool { authorized || GoogleCalendarService.shared.isConnected }
+    var hasSource: Bool { Demo.active || authorized || GoogleCalendarService.shared.isConnected }
+
+    func injectDemo(events demo: [MeetingEvent]) {
+        events = demo.sorted { $0.startDate < $1.startDate }
+        browsed = Dictionary(grouping: events, by: { Self.monthKey($0.startDate) })
+        tick()
+    }
 
     func checkStatus() {
         let status = EKEventStore.authorizationStatus(for: .event)
@@ -56,6 +62,7 @@ final class CalendarManager: ObservableObject {
 
     /// Apple accounts (iCloud, Google-via-macOS, Outlook, CalDAV) arrive through EventKit.
     func reload() {
+        guard !Demo.active else { return }
         if authorized {
             let cal = Calendar.current
             let start = cal.startOfDay(for: Date())
@@ -71,6 +78,7 @@ final class CalendarManager: ObservableObject {
     /// Called by either source after it refreshes. Drops Google events that also arrive via a
     /// Google account added to macOS, so a meeting never shows (or alerts) twice.
     func mergeSources() {
+        guard !Demo.active else { return }
         var seen = Set(appleEvents.map(\.dedupeKey))
         var merged = appleEvents
         for ev in GoogleCalendarService.shared.events where !seen.contains(ev.dedupeKey) {
@@ -90,7 +98,7 @@ final class CalendarManager: ObservableObject {
     /// Loads a whole month (Apple + Google, deduped) once; the view reads `browsed`.
     func loadMonth(containing date: Date, force: Bool = false) {
         let key = Self.monthKey(date)
-        guard force || (browsed[key] == nil && !browsing.contains(key)) else { return }
+        guard !Demo.active, force || (browsed[key] == nil && !browsing.contains(key)) else { return }
         browsing.insert(key)
         let cal = Calendar.current
         let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
@@ -121,6 +129,7 @@ final class CalendarManager: ObservableObject {
     func hasEvents(on day: Date) -> Bool { !events(on: day).isEmpty }
 
     var calendarSources: [String] {
+        if Demo.active { return ["Google (Work)", "iCloud"] }
         var names = authorized ? Set(store.calendars(for: .event).map { $0.source.title }) : []
         if GoogleCalendarService.shared.isConnected { names.insert("Google" + (GoogleCalendarService.shared.accountEmail.isEmpty ? "" : " (\(GoogleCalendarService.shared.accountEmail))")) }
         return names.sorted()

@@ -295,7 +295,7 @@ struct DeveloperSettings: View {
     var body: some View {
         SettingsSection(title: "Local API", footer: "Newline-delimited JSON over TCP, loopback only. Every request must carry the token.") {
             Toggle("Enable local API", isOn: $prefs.localAPIEnabled)
-            HStack { Text("Port"); TextField("9999", value: $prefs.localAPIPort, format: .number.grouping(.never)).frame(width: 80) ; Circle().fill(api.isRunning ? .green : .gray).frame(width: 8, height: 8); Text(api.isRunning ? "listening" : (api.lastError ?? "stopped")).font(.caption).foregroundStyle(.secondary) }
+            HStack { Text("Port"); TextField("9191", value: $prefs.localAPIPort, format: .number.grouping(.never)).frame(width: 80) ; Circle().fill(api.isRunning ? .green : .gray).frame(width: 8, height: 8); Text(api.isRunning ? "listening" : (api.lastError ?? "stopped")).font(.caption).foregroundStyle(.secondary) }
             HStack {
                 Text("Token"); Text(prefs.localAPIToken).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                 Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(prefs.localAPIToken, forType: .string) }
@@ -376,7 +376,7 @@ struct AboutSettings: View {
                 Text("Notch shape adapted from DynamicNotchKit by Kai Azim (MIT).")
                 Text("Weather data by Open-Meteo (CC BY 4.0).")
             }
-            Text("Loft is not affiliated with Apple or with Notchy.").font(.caption).foregroundStyle(.secondary)
+            Text("Loft is not affiliated with Apple.").font(.caption).foregroundStyle(.secondary)
         }
     }
 }

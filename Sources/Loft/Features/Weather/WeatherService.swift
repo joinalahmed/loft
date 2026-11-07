@@ -23,7 +23,10 @@ final class WeatherService: ObservableObject {
     private var lastCity = ""
     private init() {}
 
+    func injectDemo(_ s: WeatherSnapshot) { snapshot = s; error = nil; loading = false }
+
     func refreshIfNeeded(force: Bool = false) {
+        guard !Demo.active else { return }
         let prefs = Preferences.shared
         let city = prefs.weatherCity.trimmingCharacters(in: .whitespaces)
         guard !city.isEmpty else { snapshot = nil; return }

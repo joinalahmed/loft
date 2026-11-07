@@ -5,11 +5,11 @@
 #
 # settings.json:
 #   "hooks": {
-#     "Notification": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/loft-notify.sh" }] }],
-#     "Stop":         [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/loft-notify.sh" }] }]
+#     "Notification": [{ "hooks": [{ "type": "command", "command": "/path/to/loft/scripts/claude-code/loft-notify.sh" }] }],
+#     "Stop":         [{ "hooks": [{ "type": "command", "command": "/path/to/loft/scripts/claude-code/loft-notify.sh" }] }]
 #   }
 TOKEN=$(defaults read dev.joinal.loft localAPIToken 2>/dev/null) || exit 0
-PORT=$(defaults read dev.joinal.loft localAPIPort 2>/dev/null || echo 9999)
+PORT=$(defaults read dev.joinal.loft localAPIPort 2>/dev/null || echo 9191)
 INPUT=$(cat)
 EVENT=$(printf '%s' "$INPUT" | /usr/bin/plutil -extract hook_event_name raw -o - - 2>/dev/null)
 MSG=$(printf '%s' "$INPUT" | /usr/bin/plutil -extract message raw -o - - 2>/dev/null)

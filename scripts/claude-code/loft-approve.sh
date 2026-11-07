@@ -5,9 +5,9 @@
 #
 # settings.json:
 #   "hooks": { "PermissionRequest": [{ "hooks": [{ "type": "command",
-#       "command": "~/code/notchy/scripts/claude-code/loft-approve.sh", "timeout": 130 }] }] }
+#       "command": "/path/to/loft/scripts/claude-code/loft-approve.sh", "timeout": 130 }] }] }
 TOKEN=$(defaults read dev.joinal.loft localAPIToken 2>/dev/null) || exit 0
-PORT=$(defaults read dev.joinal.loft localAPIPort 2>/dev/null || echo 9999)
+PORT=$(defaults read dev.joinal.loft localAPIPort 2>/dev/null || echo 9191)
 INPUT=$(cat)
 TOOL=$(printf '%s' "$INPUT" | /usr/bin/plutil -extract tool_name raw -o - - 2>/dev/null)
 DETAIL=$(printf '%s' "$INPUT" | /usr/bin/python3 -c '

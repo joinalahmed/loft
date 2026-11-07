@@ -237,7 +237,7 @@ final class Preferences: ObservableObject {
 
     // Developer
     @Stored("localAPIEnabled") var localAPIEnabled = false
-    @Stored("localAPIPort") var localAPIPort = 9999
+    @Stored("localAPIPort") var localAPIPort = 9191
     @Stored("localAPIToken") var localAPIToken = ""
     @Stored("urlSchemeEnabled") var urlSchemeEnabled = true
 
