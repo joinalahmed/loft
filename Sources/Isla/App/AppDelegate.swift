@@ -53,6 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.app.info("Isla launched")
     }
 
+    /// Double-clicking Isla.app while it is already running (it has no Dock icon) should do
+    /// something visible: pop the panel open and say hello instead of silently ignoring the click.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        vm.isHidden = false
+        vm.suppressed = false
+        vm.show(message: IslandMessage(title: "Isla is running", subtitle: "Hover the notch · ⌃⌥N opens the panel", symbol: "capsule.fill", tint: .cyan), duration: 3)
+        return false
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         MusicManager.shared.shutdown()
         LocalAPIServer.shared.stop()
