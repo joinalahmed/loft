@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "Isla",
+    name: "Loft",
     platforms: [.macOS(.v14)],
     targets: [
         .executableTarget(
-            name: "Isla",
-            path: "Sources/Isla",
+            name: "Loft",
+            path: "Sources/Loft",
             swiftSettings: [
                 .unsafeFlags(["-Onone"], .when(configuration: .debug))
             ],

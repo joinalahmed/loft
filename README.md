@@ -1,256 +1,210 @@
-# Isla — a Dynamic Island for the Mac
+<p align="center">
+  <img src="docs/screenshots/home.png" width="760" alt="Loft open on the Home tab: up-next meeting, keep awake, screenshots, focus timer, weather, world clock, clipboard and system cards">
+</p>
 
-Isla turns the MacBook notch into a live, hoverable island, in the spirit of
-[Notchy](https://notchy.dev). It is a native SwiftUI/AppKit app with **no third-party
-Swift dependencies**, built with plain `swift build` and assembled into an `.app`
-by a script. macOS 14+, Apple silicon and Intel.
+<h1 align="center">Loft</h1>
 
-<p align="center"><img src="docs/home.png" width="720" alt="Isla open on the Home tab"></p>
+<p align="center">
+  <b>A Dynamic Island for the Mac.</b><br>
+  The space around your MacBook's notch becomes a live, hoverable island for the things you reach for all day:
+  what's playing, your next meeting, a file shelf, timers, clipboard, a terminal, and the tools you'd otherwise keep in the menu bar.
+</p>
+
+<p align="center">
+  <a href="https://github.com/joinalahmed/loft/releases/latest"><img alt="Download" src="https://img.shields.io/badge/download-latest%20release-111?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-333?style=for-the-badge">
+  <img alt="Universal" src="https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-333?style=for-the-badge">
+  <img alt="MIT" src="https://img.shields.io/badge/licence-MIT-333?style=for-the-badge">
+</p>
+
+Native SwiftUI + AppKit, **no third-party Swift dependencies**, no analytics, no accounts.
+Everything runs on your Mac; the only network calls are the services you turn on (weather, lyrics, stocks, and a Google
+Calendar you choose to connect).
+
+---
+
+## Install
+
+1. Download `Loft-x.y.z.dmg` from the [latest release](https://github.com/joinalahmed/loft/releases/latest) and drag Loft to Applications.
+2. Loft is signed ad hoc, not notarised, so the first launch needs one extra step: **right-click Loft.app → Open → Open**,
+   or from a terminal:
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/Loft.app
+   ```
+3. Hover the notch. The island opens. Press `⌃⌥N` any time to open it from the keyboard, and `⌘,` for Settings.
+
+Loft asks for a permission only when you enable the feature that needs it (see [Permissions](#permissions)).
 
 ## What it does
 
-**Collapsed pill (around the hardware notch)**
-- Now Playing: album art on the left, animated bars on the right, tinted with the album colour
-- HUDs: volume, brightness, Caps Lock replace the macOS overlay (optional key interception)
-- Battery: plugged in / charging / low-battery islands
-- Meetings: countdown and Join icon from 10 min before an event; full-screen Join / Snooze / Dismiss pop-up on every display at the lead time you choose
-- Timer: progress ring and remaining time while a countdown or Pomodoro runs
-- Screenshots: thumbnail island when a capture lands (yours or native ⌘⇧3/4/5)
-- Messages from scripts: title, subtitle, icon and progress via the local API or `isla://` URLs
-- Privacy dots: orange while the microphone is live, green while a camera is on; during a call the pill shows a timer and a one-tap mic mute
-- Downloads: live progress for Safari / Chrome / Firefox downloads, then a Reveal island (opt-in)
-- Approval requests: `ask` from the local API puts Allow / Deny buttons in the pill (Claude Code hook included)
-- Keep-awake indicator, optional clock
+### Around the notch, while you work
 
-**Expanded panel (hover, click, or ⌃⌥N)**
-| Tab | Contents |
+<p align="center"><img src="docs/pill-music.png" width="560" alt="Collapsed island showing album art and audio bars"></p>
+
+- **Now Playing** from Music, Spotify or any app: artwork on the left, live bars on the right, tinted with the album colour.
+- **HUDs** for volume, brightness and Caps Lock that replace the macOS overlay.
+- **Meetings**: a countdown and Join glyph from ten minutes before an event. At your lead time a full-screen alert on every display: **↩ Join · S snooze · esc dismiss**.
+- **Live activities**: timer ring, screenshot thumbnails, download progress, battery states, keep-awake, privacy dots while the mic or camera is on, a call island with one-tap mute.
+- **Messages and approvals from your scripts** via the local API or `loft://` URLs. A Claude Code hook turns permission prompts into Allow / Deny buttons in the notch.
+
+<p align="center"><img src="docs/screenshots/alert.png" width="760" alt="Full-screen meeting alert with Join, Snooze and Dismiss"></p>
+
+### Inside the island
+
+Hover, click, or press `⌃⌥N`. Tabs can be switched on, off and reordered in **Settings → Tools**; the Home tab adapts its grid to whatever you keep.
+
+| Tab | What you get |
 |---|---|
-| Home | music card, up-next event with Join, keep-awake status, screenshot buttons, focus timer, weather, latest clipboard item |
-| Music | artwork, scrubber, ±15 s, prev/play/next, source app, time-synced lyrics (LRCLIB), audio-output switcher |
-| Shelf | drop files on the notch, drag them out later, AirDrop / copy / reveal; convert / resize / OCR images, zip anything; screenshots land here automatically |
-| Clipboard | searchable history with pins, colours, links, images, files; double-click pastes |
-| Timer | Pomodoro with sessions-per-day, countdown presets, drift-free stopwatch |
-| Calendar | today's events from every macOS account (iCloud, Google, Outlook, CalDAV) **and** a directly connected Google account, Join buttons, meeting-alert preview |
-| Reminders | overdue / today / later from every Reminders list, check off, add with a due date |
-| Notes | one autosaved quick note |
-| Terminal | a real zsh session in the notch (⌃⌥`): history, ⌃C, ⌃L, output transcript |
-| Apps | running apps (switch, hide, quit) and a type-to-launch grid of /Applications (optional) |
-| Stocks | tickers of your choice with day sparkline, from Yahoo Finance (optional) |
-| System | CPU, memory, disk, battery gauges; network rate, Wi-Fi signal / band / link rate, external drives with Eject, cycles, uptime |
-| Mirror | camera check before a call (never recorded) |
-| Weather | current + 5 days from Open-Meteo, city-based, no location permission |
+| **Home** | adaptive cards: up next (with Join), keep awake, screenshots, focus timer, weather, world clock, clipboard, system, reminders, lock |
+| **Music** | artwork, scrubber, ±15 s, transport, source app, time-synced lyrics, audio-output switcher |
+| **Shelf** | drop files on the notch and drag them out later; AirDrop, copy, reveal; convert / resize / OCR images; zip anything |
+| **Clipboard** | searchable history with pins: text, links, colours, images, files; double-click pastes |
+| **Timer** | Pomodoro with daily session history, countdown presets, drift-free stopwatch |
+| **Calendar** | month grid with event dots, day agenda, Join buttons; every macOS account plus a directly connected Google account |
+| **Reminders** | overdue / today / later across lists; check off, add with a due date; full-screen alert when due |
+| **Notes** | one autosaved quick note |
+| **Terminal** | a real zsh session in the notch (`` ⌃⌥` ``) with your own dotfiles |
+| **World Clock** | cities side by side with day/night tint and a time scrubber; search by city or country ("Delhi", "China", "Bombay") |
+| **Apps** | switch, hide or quit running apps; type-to-launch grid |
+| **Stocks** | tickers of your choice with day sparklines |
+| **System** | CPU, memory, disk, battery, network rate, Wi-Fi details, external drives with Eject |
+| **Mirror** | camera check before a call, never recorded |
+| **Weather** | current conditions and five days, by city, no location permission |
 
-**Daily-driver features, built out in depth**
-- **Meeting pop-ups**: N minutes before an event a dimmed full-screen card appears on every
-  display with the title, time, and a green **Join** button (Zoom, Meet, Teams, Webex, Whereby,
-  FaceTime, Slack, Discord links detected). Return joins, S snoozes one minute, Esc dismisses.
-  Declined events are skipped; optional island-only style.
-- **Screenshots**: region / window / full via the system capture UI, saved to the Desktop,
-  copied to the clipboard and shelved with a thumbnail island. Isla hides itself for the shot.
-  A Desktop watcher shelves native ⌘⇧3/4/5 screenshots too.
-- **Keep awake (caffeine)**: toggle or pick 15 min / 30 min / 1 h / 2 h / 4 h from the header,
-  Home card, menu bar, palette or ⌃⌥A; countdown shown on Home; optional display-sleep-only mode.
-- **Calendar sync**: anything in System Settings → Internet Accounts shows up; refreshes on
-  every EventKit change plus every 5 minutes. **Google Calendar can also be connected directly**
-  (Settings → Features → Google Calendar) with your own OAuth desktop client: PKCE + loopback
-  sign-in, read-only scope, refresh token in the Keychain, duplicates against macOS accounts
-  dropped automatically.
-- **Full-screen alerts everywhere**: the same every-display pop-up (↩ main action · S snooze ·
-  esc dismiss) fires for meetings, finished timers / focus sessions, and due reminders.
+<p align="center">
+  <img src="docs/screenshots/calendar.png" width="372" alt="Month grid with event dots">
+  <img src="docs/screenshots/worldclock.png" width="372" alt="World clock cards">
+</p>
 
-- **Tools**: screen colour picker (hex copied, ⌃⌥P), copy-text-from-screen OCR (⌃⌥O), eject all
-  drives, mic mute (⌃⌥⇧M), battery low / critical / full alerts with your thresholds.
+### Daily drivers, built out in depth
 
-Plus a **command palette** (⌘K inside the panel, ⌃⌥K anywhere) that also does arithmetic,
-opens URLs and searches the web, a **menu bar item** that can show the next meeting,
-a **settings window** (⌘,), **launch at login**, **hide while an app is full screen**, and
-**hide from screen capture**.
+- **Calendar sync.** Anything in System Settings → Internet Accounts shows up and refreshes on every change. Google Calendar can also be connected directly with your own OAuth desktop client (PKCE and loopback sign-in, read-only scope, refresh token in the Keychain). Duplicates between the two sources are dropped.
+- **Meeting alerts.** Zoom, Meet, Teams, Webex, Whereby, FaceTime, Slack and Discord links are detected. Declined events are skipped. The same alert style fires for finished timers and due reminders.
+- **Screenshots.** Region, window or full screen through the system capture UI (`⌃⌥⇧3/4/5`), copied, saved, shelved with a thumbnail. Native `⌘⇧3/4/5` captures are shelved too. Plus a screen colour picker (`⌃⌥P`) and copy-text-from-screen OCR (`⌃⌥O`).
+- **Keep awake.** Toggle, or pick 15 min to 4 h, from the header, Home, menu bar, palette or `⌃⌥A`.
+- **Lock screen.** Lock from the header, menu, palette or `⌃⌥Q`; pause music and release keep-awake on lock; resume and a welcome-back island on unlock; experimental widgets over the lock screen.
+- **Command palette.** `⌘K` inside the island or `⌃⌥K` anywhere: every tool and tab, arithmetic, URLs, web search.
 
-## Build and run
-
-```sh
-scripts/build.sh            # release build → build/Isla.app (ad-hoc signed)
-scripts/build.sh debug      # faster incremental build
-scripts/build.sh release --universal   # arm64 + x86_64
-open build/Isla.app
-```
-
-Requires Xcode 15+ command-line tools. No Homebrew, no CocoaPods, no Xcode project.
-The first launch shows a welcome island and opens Settings.
-
-Because the app is ad-hoc signed, macOS ties privacy grants (Accessibility, Calendar,
-Camera) to the binary hash: rebuilding invalidates them and you re-grant in
-System Settings. Sign with a Developer ID to avoid that.
+<p align="center"><img src="docs/screenshots/tools.png" width="560" alt="Settings → Tools: switches for every tab"></p>
 
 ## Keyboard
 
 | Shortcut | Action |
 |---|---|
-| ⌃⌥N | toggle the panel |
-| ⌥Space | hide / show Isla |
-| ⌃⌥C | clipboard tab |
-| ⌃⌥K | command palette |
-| ⌃⌥T | timer tab |
-| ⌃⌥S | shelf tab |
-| ⌃⌥A | toggle keep awake |
-| ⌃⌥M | join the next meeting |
-| ⌃⌥⇧M | mute / unmute the microphone |
-| ⌃⌥P | pick a colour from the screen |
-| ⌃⌥O | copy text from a screen region (OCR) |
-| ⌃⌥L | app launcher |
-| ⌃⌥` | terminal |
-| ⌃⌥⇧3 / 4 / 5 | screenshot: full screen / region / window |
-| inside the panel | ⌘1–9 tabs · ← → cycle · ⌘K palette · esc close |
+| `⌃⌥N` | toggle the island |
+| `⌥Space` | hide / show Loft |
+| `⌃⌥K` | command palette |
+| `⌃⌥C` `⌃⌥T` `⌃⌥S` `⌃⌥L` `` ⌃⌥` `` | clipboard · timer · shelf · apps · terminal |
+| `⌃⌥A` | toggle keep awake |
+| `⌃⌥M` | join the next meeting |
+| `⌃⌥⇧M` | mute / unmute the microphone |
+| `⌃⌥P` `⌃⌥O` | pick a colour · copy text from screen |
+| `⌃⌥⇧3 / 4 / 5` | screenshot: full screen · region · window |
+| `⌃⌥Q` | lock the screen |
+| inside the island | `⌘1–9` tabs · `← →` cycle · `⌘K` palette · `esc` close |
 
-Hotkeys use Carbon `RegisterEventHotKey`, so they work without Accessibility.
+Every shortcut can be switched off in Settings → Tools. Hotkeys use Carbon `RegisterEventHotKey`, so they work without Accessibility.
 
 ## Automation
 
-**URL scheme** (works from Shortcuts, scripts, `open`):
+**URL scheme**, from Shortcuts, scripts or `open`:
 
 ```
-isla://show?title=Build%20done&message=main%20·%2042s&symbol=hammer.fill&duration=4
-isla://open?tab=clipboard   isla://close   isla://toggle
-isla://timer?minutes=10     isla://timer?action=pomodoro
+loft://show?title=Build%20done&message=main%20·%2042s&symbol=hammer.fill&duration=4
+loft://open?tab=clipboard   loft://close   loft://toggle   loft://lock
+loft://timer?minutes=10     loft://timer?action=pomodoro
 ```
 
-**Local API** (Settings → Developer → enable). Newline-delimited JSON over TCP on
-`127.0.0.1:9999`, token required:
+**Local API** (Settings → Developer → Enable local API). Newline-delimited JSON over TCP on `127.0.0.1:9999` with a per-install token:
 
 ```sh
-T=$(defaults read dev.joinal.isla localAPIToken)
+T=$(defaults read dev.joinal.loft localAPIToken)
 echo "{\"token\":\"$T\",\"command\":\"status\"}" | nc 127.0.0.1 9999
 echo "{\"token\":\"$T\",\"title\":\"Tests passed\",\"subtitle\":\"312 green\",\"symbol\":\"checkmark.seal.fill\"}" | nc 127.0.0.1 9999
-echo "{\"token\":\"$T\",\"command\":\"music\",\"action\":\"toggle\"}" | nc 127.0.0.1 9999
 echo "{\"token\":\"$T\",\"command\":\"timer\",\"action\":\"countdown\",\"minutes\":25}" | nc 127.0.0.1 9999
+echo "{\"token\":\"$T\",\"command\":\"worldclock\",\"add\":\"Tokyo\"}" | nc 127.0.0.1 9999
 ```
 
-Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting
-clipboard shelf volume brightness settings snapshot ask mic audio colorpicker ocr eject
-reminders privacy lyrics calc`. `keepawake` takes `minutes`;
-`screenshot` takes `mode` (region|window|full); `meeting` takes `action` (test|dismiss|join)
-or returns the next event. A request with a `title` and no `command` shows a
-message island. `snapshot` renders the island (or `"window":"settings"`) to a PNG, which
-is how the screenshots in `docs/` were taken without screen-recording permission.
+Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting clipboard shelf volume brightness
+settings snapshot ask mic audio colorpicker ocr eject reminders privacy lyrics calc worldclock lock debug`.
+A request with a `title` and no `command` shows a message island. `ask` blocks until the user taps a button in the pill and replies
+`{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG, which is how every screenshot in this
+README was taken.
 
-`ask` blocks until the user taps a button in the pill (or the timeout passes) and replies
-`{"answer":"Allow","approved":true}`:
-
-```sh
-echo "{\"token\":\"$T\",\"command\":\"ask\",\"title\":\"Deploy to prod?\",\"options\":[\"Deploy\",\"Cancel\"],\"timeout\":60}" | python3 -c 'import socket,sys; s=socket.create_connection(("127.0.0.1",9999)); s.sendall(sys.stdin.buffer.read()); print(s.recv(4096).decode())'
-```
-
-**Claude Code hooks** live in `scripts/claude-code/`: `isla-notify.sh` shows Stop /
-Notification events as islands, `isla-approve.sh` turns `PermissionRequest` into an
-Allow / Deny prompt in the notch (no answer within two minutes falls back to the terminal
-prompt). Add them to `~/.claude/settings.json`:
+**Claude Code hooks** live in `scripts/claude-code/`: `loft-notify.sh` shows Stop and Notification events as islands,
+`loft-approve.sh` turns `PermissionRequest` into an Allow / Deny prompt in the notch. Add them to `~/.claude/settings.json`:
 
 ```json
 "hooks": {
-  "Stop": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-notify.sh" }] }],
-  "Notification": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-notify.sh" }] }],
-  "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "~/code/notchy/scripts/claude-code/isla-approve.sh", "timeout": 130 }] }]
+  "Stop":              [{ "hooks": [{ "type": "command", "command": "/path/to/loft/scripts/claude-code/loft-notify.sh" }] }],
+  "Notification":      [{ "hooks": [{ "type": "command", "command": "/path/to/loft/scripts/claude-code/loft-notify.sh" }] }],
+  "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "/path/to/loft/scripts/claude-code/loft-approve.sh", "timeout": 130 }] }]
 }
-```
-
-A shell hook is one line:
-
-```sh
-# ~/.zshrc — announce long commands in the notch
-preexec() { __t0=$SECONDS }
-precmd() { (( SECONDS - __t0 > 30 )) && echo "{\"token\":\"$ISLA_TOKEN\",\"title\":\"Command finished\",\"subtitle\":\"$((SECONDS-__t0))s\",\"symbol\":\"terminal.fill\"}" | nc -w1 127.0.0.1 9999 >/dev/null }
 ```
 
 ## Permissions
 
-Only asked when you enable the feature:
+Asked only when you enable the feature:
 
 | Permission | Feature |
 |---|---|
-| none | pill, panel, music, HUD display, clipboard, shelf, timer, notes, system, weather, API, hotkeys |
-| Accessibility | replace the system HUD (key interception), Caps Lock indicator, paste from clipboard |
-| Calendars | Calendar tab, up-next card |
+| none | island, music, HUD display, clipboard, shelf, timer, notes, terminal, world clock, system, weather, API, hotkeys |
+| Accessibility | replace the system HUD, Caps Lock indicator, paste from clipboard history |
+| Calendars / Reminders | Calendar and Reminders tabs, up-next card, meeting alerts |
 | Camera | Mirror tab |
-| Screen Recording | screenshots taken from the notch (asked by macOS on first capture) |
-| Automation (Music/Spotify) | only the AppleScript fallback when the Now Playing adapter is unavailable |
+| Screen Recording | screenshots, colour picker and OCR taken from the notch |
+| Automation (Music / Spotify) | only the AppleScript fallback when the Now Playing adapter is unavailable |
+
+## Build from source
+
+```sh
+git clone https://github.com/joinalahmed/loft.git && cd loft
+scripts/build.sh                      # release build → build/Loft.app (ad-hoc signed)
+scripts/build.sh debug                # faster incremental build
+scripts/build.sh release --universal  # arm64 + x86_64
+scripts/release.sh 1.2.3              # universal app + zip + DMG + checksums in dist/
+open build/Loft.app
+```
+
+Xcode 15+ command-line tools are all you need: no Homebrew, no CocoaPods, no Xcode project.
+Because the app is ad-hoc signed, macOS ties privacy grants to the binary: rebuilding means re-granting Accessibility,
+Calendar and Camera. Sign with your own Developer ID to avoid that.
 
 ## How it works
 
-- **Window.** One borderless, non-activating `NSPanel` at level `mainMenu + 3`, joined to
-  all Spaces and fullscreen apps, centred on the notched display. The panel is large
-  (panel width + padding) but fully transparent except for the island, and macOS routes
-  clicks on transparent pixels to the windows beneath. `Notch/NotchWindow.swift`
-- **Geometry.** `NSScreen.auxiliaryTopLeftArea/TopRightArea` and `safeAreaInsets.top`
-  give the exact notch rectangle (220 × 38 pt on a 14-inch MacBook Pro). The closed
-  island covers it with a 6 pt top flare and 14 pt bottom radius; open it swells to
-  19 / 24 pt and the configured panel size. `Notch/NotchGeometry.swift`, `NotchShape.swift`
-- **State.** `NotchViewModel` holds `closed/open`, hover with a configurable delay and a
-  350 ms exit grace, a `Transient` slot for HUD/battery/message islands with auto-expiry,
-  and the selected tab. The compact row renders by priority: transient › timer › music › idle.
-- **Now Playing.** Since macOS 15.4 `mediaremoted` only answers Apple-signed processes.
-  Isla bundles [MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)
-  (BSD-3) and runs it inside `/usr/bin/perl`, streaming JSON diffs over a pipe. Playback
-  commands go the same way. If the adapter fails its self-test, Isla falls back to
-  AppleScript polling of Spotify / Music. `Features/Music/MusicManager.swift`
-- **HUDs.** Volume comes from CoreAudio property listeners on the default output device;
-  brightness from `DisplayServicesGetBrightness` polled at 2.5 Hz. With Accessibility
-  granted and "Replace the system HUD" on, a `CGEvent` tap swallows the NX media keys
-  and applies the change itself, so macOS never draws its overlay.
-- **Clipboard.** Polls `NSPasteboard.changeCount` twice a second, skips pasteboards
-  marked concealed/transient by password managers, persists to
-  `~/Library/Application Support/Isla/Clipboard`.
-- **Idle cost.** ~0.1 % CPU, ~190 MB RSS with every feature on. Disabled tabs never start.
-
-## Project layout
+- **Window.** One borderless, non-activating `NSPanel` above the menu bar, on every Space and over full-screen apps, centred on the notched display. Mouse events are accepted only inside the island's own frame, so clicks and keystrokes everywhere else reach the app underneath.
+- **Geometry.** `NSScreen.auxiliaryTopLeftArea` / `TopRightArea` and `safeAreaInsets.top` give the exact notch rectangle. The header lays tabs out beside the hardware notch, never under it.
+- **Now Playing.** Since macOS 15.4 `mediaremoted` answers only Apple-signed processes, so Loft bundles [MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter) and runs it inside `/usr/bin/perl`, streaming JSON diffs over a pipe. If that fails, it polls Spotify and Music over AppleScript.
+- **HUDs.** CoreAudio listeners for volume, `DisplayServices` for brightness. With Accessibility granted a `CGEvent` tap swallows the media keys and applies the change itself, so macOS never draws its overlay.
+- **Alerts.** One controller shows a full-bleed takeover panel per display, scaled to the screen, with keyboard shortcuts for every action.
+- **Idle cost.** About 0.1 % CPU with every feature on. Disabled tabs never start their services.
 
 ```
-Package.swift                 SwiftPM manifest (single executable target, no deps)
-Resources/Info.plist          LSUIElement app, isla:// URL scheme, usage strings
-Resources/AppIcon.icns        generated by scripts (see git history)
-Vendor/mediaremote-adapter/   MediaRemoteAdapter.framework + perl shim (BSD-3)
-scripts/build.sh              swift build → build/Isla.app, ad-hoc codesign
-scripts/snap.sh               render the island to /tmp/isla-<name>.png via the API
-Sources/Isla/
-  App/            IslaApp (MenuBarExtra), AppDelegate (window, monitors, URL scheme)
-  Notch/          window, geometry, shape, view model, root/compact/panel/home views
-  Features/       Music, HUD, Battery, Clipboard, Shelf, Timer, Calendar (+MeetingAlert),
-                  Screenshot, Notes, System, Camera, Weather, KeepAwake, Palette, API
-  Settings/       settings window and panes
-  Hotkeys/        Carbon global hotkeys
-  Support/        Preferences (UserDefaults wrapper), extensions, haptics, logging
+Package.swift                 SwiftPM manifest, single executable target, no dependencies
+Resources/                    Info.plist (LSUIElement, loft:// scheme, usage strings), app icon
+Vendor/mediaremote-adapter/   MediaRemoteAdapter.framework + perl shim (BSD-3-Clause)
+scripts/                      build.sh, release.sh, snap.sh, claude-code hooks
+Sources/Loft/
+  App/        menu bar app, AppDelegate (window, monitors, URL scheme)
+  Notch/      window, geometry, shape, view model, compact row, panel, home grid
+  Features/   one folder per tool: Music, Calendar, Shelf, Clipboard, Timer, Terminal,
+              WorldClock, Lock, Alerts, Screenshot, Reminders, System, Weather, API, …
+  Settings/   settings window and panes, Tools pane
+  Hotkeys/    Carbon global hotkeys
+  Support/    preferences, Keychain, extensions, logging
 ```
 
-## Research notes: what Notchy does (Nov 2026)
+## Roadmap
 
-Gathered from notchy.dev, its help centre and changelog, as the brief for this build.
-
-- One developer (Vishva Variya), closed source, SwiftUI, macOS 13+, universal. $24.99
-  one-time with a 7-day trial since v2.0.0 (Oct 26 2026); ~222 releases in six months via
-  Sparkle; 134 languages; claims ~0.9 % of one core under load.
-- Collapsed pill: Now Playing with artwork + spectrum, system HUDs, call/message islands,
-  battery, timers, download progress, agent (Claude Code / Codex) approvals, caps lock,
-  keystroke HUD, multiple live activities, Lottie idle animations.
-- Panel: Home cards, Now Playing with synced lyrics (LRCLIB), clipboard with smart actions,
-  file shelf with AirDrop, Pomodoro, calendar/reminders, notes, stocks, weather, system
-  stats, terminal (VT100), command palette ⌃⌥K / ⌘1-9, launcher wheel ⌃⌥L.
-- Platform tricks: per-app volume via CoreAudio process taps (14.4+), DDC for external
-  monitors via IOAVService, Face Unlock with Apple Vision + Keychain-stored password typed
-  through Accessibility, window snapping, menu bar icon hiding, lock-screen widgets,
-  notification mirroring (Full Disk Access), knock detection via accelerometer.
-- Developer surface: local API on 127.0.0.1:9999, newline JSON with a per-install token;
-  `notchy://show?title=&message=` URL scheme; zsh preexec hook; Claude Code hooks.
-- Defaults: hover opens the panel; ⌥Space hides; ⌃⌥N opens; accessibility is the only
-  mandatory permission; everything else prompts when the feature is enabled.
-
-Isla implements the core of that list. Not implemented (by choice, for an overnight build):
-lyrics, per-app volume, DDC, Face Unlock, window snapping, notification mirroring,
-terminal, stocks, Sparkle updates, localisation.
+See [`docs/research/notch-apps.md`](docs/research/notch-apps.md) for a survey of the notch-app landscape and the gap
+analysis that drives what comes next. Issues and pull requests are welcome.
 
 ## Acknowledgements
 
-- [MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter) — Jonas van den Berg, BSD-3-Clause
-- Notch shape adapted from [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) — Kai Azim, MIT
-- Window technique informed by [boring.notch](https://github.com/TheBoredTeam/boring.notch) (GPL-3; no code copied)
-- Weather by [Open-Meteo](https://open-meteo.com) (CC BY 4.0)
+- [MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter) by Jonas van den Berg, BSD-3-Clause
+- Notch shape adapted from [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) by Kai Azim, MIT
+- Window technique informed by [boring.notch](https://github.com/TheBoredTeam/boring.notch), GPL-3, no code copied
+- Weather by [Open-Meteo](https://open-meteo.com), CC BY 4.0; lyrics by [LRCLIB](https://lrclib.net)
+- Inspired by [Notchy](https://notchy.dev). Loft is not affiliated with Apple or with Notchy.
 
-Isla is not affiliated with Apple or with Notchy.
+MIT licence. Copyright © 2026 Joinal Ahmed.

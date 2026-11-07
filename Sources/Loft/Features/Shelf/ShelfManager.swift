@@ -1,0 +1,186 @@
+import AppKit
+import Vision
+import SwiftUI
+import Combine
+import UniformTypeIdentifiers
+
+struct ShelfItem: Identifiable, Equatable {
+    let id = UUID()
+    let url: URL
+    var name: String { url.lastPathComponent }
+    var isImage: Bool { ["png", "jpg", "jpeg", "heic", "gif", "tiff", "webp"].contains(url.pathExtension.lowercased()) }
+    /// Real preview for images, Finder icon for everything else.
+    var icon: NSImage {
+        if isImage, let img = NSImage(contentsOf: url) { return img.resized(maxDimension: 160) }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
+    static func == (a: ShelfItem, b: ShelfItem) -> Bool { a.url == b.url }
+}
+
+@MainActor
+final class ShelfManager: ObservableObject {
+    static let shared = ShelfManager()
+    @Published private(set) var items: [ShelfItem] = []
+    private let tempDir = AppSupport.directory("Shelf")
+    private let store = AppSupport.directory("").appendingPathComponent("shelf.json")
+
+    private init() { load() }
+
+    func ingest(_ providers: [NSItemProvider]) {
+        for p in providers {
+            if p.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                p.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { [weak self] data, _ in
+                    guard let data = data as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                    Task { @MainActor in self?.add(url) }
+                }
+            } else if p.canLoadObject(ofClass: NSImage.self) {
+                _ = p.loadObject(ofClass: NSImage.self) { [weak self] obj, _ in
+                    guard let img = obj as? NSImage, let tiff = img.tiffRepresentation,
+                          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return }
+                    Task { @MainActor in self?.addTemp(data: png, ext: "png", base: "Image") }
+                }
+            } else if p.canLoadObject(ofClass: NSString.self) {
+                _ = p.loadObject(ofClass: NSString.self) { [weak self] obj, _ in
+                    guard let s = obj as? String, let data = s.data(using: .utf8) else { return }
+                    Task { @MainActor in self?.addTemp(data: data, ext: "txt", base: "Text") }
+                }
+            }
+        }
+    }
+
+    /// Drops entries whose files were deleted or moved since they were shelved.
+    /// File checks run off the main thread: protected folders can block on a permission prompt.
+    func prune() {
+        let paths = items.map(\.url.path)
+        Task.detached(priority: .utility) { [weak self] in
+            let gone = Set(paths.filter { !FileManager.default.fileExists(atPath: $0) })
+            guard !gone.isEmpty else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.items.removeAll { gone.contains($0.url.path) }
+                self.save()
+            }
+        }
+    }
+
+    func add(_ url: URL) {
+        guard !items.contains(where: { $0.url == url }) else { return }
+        items.insert(ShelfItem(url: url), at: 0)
+        save()
+    }
+
+    private func addTemp(data: Data, ext: String, base: String) {
+        let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)
+            .replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: ".")
+        let url = tempDir.appendingPathComponent("\(base) \(stamp).\(ext)")
+        try? data.write(to: url)
+        add(url)
+    }
+
+    func remove(_ item: ShelfItem) {
+        items.removeAll { $0.id == item.id }
+        if item.url.path.hasPrefix(tempDir.path) { try? FileManager.default.removeItem(at: item.url) }
+        save()
+    }
+
+    func clear() { items.forEach { if $0.url.path.hasPrefix(tempDir.path) { try? FileManager.default.removeItem(at: $0.url) } }; items.removeAll(); save() }
+
+    func open(_ item: ShelfItem) { NSWorkspace.shared.open(item.url) }
+    func reveal(_ item: ShelfItem) { NSWorkspace.shared.activateFileViewerSelecting([item.url]) }
+
+    func airDrop(_ selection: [ShelfItem]) {
+        guard let service = NSSharingService(named: .sendViaAirDrop) else { return }
+        let vm = NotchViewModel.shared
+        vm.pinnedOpen = true
+        service.perform(withItems: selection.map(\.url))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { vm.pinnedOpen = false }
+    }
+
+    // MARK: File actions (all run off-main; results land back on the shelf)
+
+    func convert(_ item: ShelfItem, to type: UTType) {
+        let src = item.url, dir = tempDir
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let ext = type.preferredFilenameExtension ?? "png"
+            let out = dir.appendingPathComponent(src.deletingPathExtension().lastPathComponent + "." + ext)
+            guard let dest = CGImageDestinationCreateWithURL(out as CFURL, type.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, cg, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+            guard CGImageDestinationFinalize(dest) else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Converted to \(ext.uppercased())", subtitle: out.lastPathComponent, symbol: "arrow.triangle.2.circlepath", tint: .green), duration: 2) }
+        }
+    }
+
+    func resize(_ item: ShelfItem, scale: CGFloat? = nil, maxSide: CGFloat? = nil) {
+        let src = item.url, dir = tempDir
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let w = CGFloat(cg.width), h = CGFloat(cg.height)
+            let factor = scale ?? min(1, (maxSide ?? max(w, h)) / max(w, h))
+            let size = CGSize(width: (w * factor).rounded(), height: (h * factor).rounded())
+            guard let ctx = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+            ctx.interpolationQuality = .high
+            ctx.draw(cg, in: CGRect(origin: .zero, size: size))
+            guard let outCG = ctx.makeImage() else { return }
+            let ext = src.pathExtension.lowercased() == "jpg" || src.pathExtension.lowercased() == "jpeg" ? "jpg" : "png"
+            let out = dir.appendingPathComponent(src.deletingPathExtension().lastPathComponent + " \(Int(size.width))x\(Int(size.height))." + ext)
+            guard let dest = CGImageDestinationCreateWithURL(out as CFURL, (ext == "jpg" ? UTType.jpeg : UTType.png).identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, outCG, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+            guard CGImageDestinationFinalize(dest) else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Resized to \(Int(size.width))×\(Int(size.height))", subtitle: out.lastPathComponent, symbol: "arrow.down.right.and.arrow.up.left", tint: .green), duration: 2) }
+        }
+    }
+
+    func ocr(_ item: ShelfItem) {
+        let src = item.url
+        Task.detached {
+            guard let img = NSImage(contentsOf: src), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let req = VNRecognizeTextRequest(); req.recognitionLevel = .accurate; req.usesLanguageCorrection = true
+            try? VNImageRequestHandler(cgImage: cg).perform([req])
+            let lines = (req.results ?? []).sorted { $0.boundingBox.minY > $1.boundingBox.minY }.compactMap { $0.topCandidates(1).first?.string }
+            await MainActor.run {
+                if lines.isEmpty { NotchViewModel.shared.show(message: IslandMessage(title: "No text found", symbol: "text.viewfinder", tint: .orange), duration: 2); return }
+                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+                NotchViewModel.shared.show(message: IslandMessage(title: "Copied \(lines.count) line\(lines.count == 1 ? "" : "s")", subtitle: lines.first, symbol: "text.viewfinder", tint: .green), duration: 3)
+            }
+        }
+    }
+
+    func zip(_ selection: [ShelfItem]) {
+        guard let first = selection.first else { return }
+        let name = selection.count == 1 ? first.url.deletingPathExtension().lastPathComponent : "Archive"
+        let out = tempDir.appendingPathComponent(name + ".zip")
+        let paths = selection.map(\.url.path)
+        Task.detached {
+            try? FileManager.default.removeItem(at: out)
+            let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent"] + (paths.count == 1 ? [paths[0], out.path] : [])
+            if paths.count > 1 {
+                // ditto zips a single directory; stage multiple items in a temp folder first.
+                let stage = FileManager.default.temporaryDirectory.appendingPathComponent("loft-zip-\(UUID().uuidString)/\(name)")
+                try? FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
+                for path in paths { try? FileManager.default.copyItem(atPath: path, toPath: stage.appendingPathComponent((path as NSString).lastPathComponent).path) }
+                p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", stage.path, out.path]
+            }
+            try? p.run(); p.waitUntilExit()
+            guard p.terminationStatus == 0 else { return }
+            await MainActor.run { self.add(out); NotchViewModel.shared.show(message: IslandMessage(title: "Zipped", subtitle: out.lastPathComponent, symbol: "doc.zipper", tint: .green), duration: 2) }
+        }
+    }
+
+    func copyToClipboard(_ selection: [ShelfItem]) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.writeObjects(selection.map { $0.url as NSURL })
+    }
+
+    private func load() {
+        guard let data = try? Data(contentsOf: store), let paths = try? JSONDecoder().decode([String].self, from: data) else { return }
+        items = paths.map { ShelfItem(url: URL(fileURLWithPath: $0)) }
+        prune()
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(items.map(\.url.path)) { try? data.write(to: store, options: .atomic) }
+    }
+}

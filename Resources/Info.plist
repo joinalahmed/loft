@@ -2,38 +2,58 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDevelopmentRegion</key><string>en</string>
-	<key>CFBundleExecutable</key><string>Isla</string>
-	<key>CFBundleIconFile</key><string>AppIcon</string>
-	<key>CFBundleIdentifier</key><string>dev.joinal.isla</string>
-	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-	<key>CFBundleName</key><string>Isla</string>
-	<key>CFBundleDisplayName</key><string>Isla</string>
-	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.1.0</string>
-	<key>CFBundleVersion</key><string>1</string>
-	<key>LSMinimumSystemVersion</key><string>14.0</string>
-	<key>LSUIElement</key><true/>
-	<key>NSHighResolutionCapable</key><true/>
-	<key>NSPrincipalClass</key><string>NSApplication</string>
-	<key>NSSupportsAutomaticTermination</key><false/>
-	<key>NSSupportsSuddenTermination</key><false/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Loft</string>
+	<key>CFBundleExecutable</key>
+	<string>Loft</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.joinal.loft</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Loft</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleURLName</key><string>dev.joinal.isla</string>
-			<key>CFBundleURLSchemes</key><array><string>isla</string></array>
+			<key>CFBundleURLName</key>
+			<string>dev.joinal.loft</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>loft</string>
+			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>18</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Isla talks to Music and Spotify to control playback when the system Now Playing bridge is unavailable.</string>
+	<string>Loft talks to Music and Spotify to control playback when the system Now Playing bridge is unavailable.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Isla shows your upcoming events in the notch.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Isla can show your reminders in the notch.</string>
+	<string>Loft shows your upcoming events in the notch.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Isla uses the camera for the Mirror tab only. Nothing is recorded.</string>
+	<string>Loft uses the camera for the Mirror tab only. Nothing is recorded.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Isla does not record audio; this is required by the camera mirror session.</string>
+	<string>Loft does not record audio; this is required by the camera mirror session.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Loft can show your reminders in the notch.</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
 </dict>
 </plist>
