@@ -17,7 +17,7 @@ struct RemindersTabView: View {
                     Button("Allow Reminders Access") { rem.requestAccess() }
                 }
             }
-            .buttonStyle(.borderedProminent).controlSize(.small)
+            .buttonStyle(.loftProminent()).controlSize(.small)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 6) {

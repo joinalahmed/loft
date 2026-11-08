@@ -24,7 +24,7 @@ struct MirrorTabView: View {
                     }
                 }
             }
-            .buttonStyle(.borderedProminent).controlSize(.small)
+            .buttonStyle(.loftProminent()).controlSize(.small)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

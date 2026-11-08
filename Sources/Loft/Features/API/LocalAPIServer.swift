@@ -185,6 +185,7 @@ final class LocalAPIServer: ObservableObject {
             let now = Date()
             return ["ok": true, "zones": WorldClockStore.shared.zones.map { ["city": $0.city, "zone": $0.identifier, "time": $0.time(at: now), "offset": $0.offsetText(at: now)] }]
         case "demo": Demo.start(); return ["ok": true]
+        case "activities": return ["ok": true, "activityKit": ActivityKitBridge.shared.isAvailable, "activities": LiveActivityHub.shared.json]
         case "lock":
             if req["previewWidgets"] as? Bool == true { LockScreenManager.shared.previewWidgets() } else { LockScreenManager.shared.lock() }
             return ["ok": true, "locked": LockScreenManager.shared.isLocked]

@@ -31,7 +31,8 @@ Calendar you choose to connect).
    ```sh
    xattr -dr com.apple.quarantine /Applications/Loft.app
    ```
-3. Hover the notch. The island opens. Press `⌃⌥N` any time to open it from the keyboard, and `⌘,` for Settings.
+3. Hover the notch. The panel hangs down from it, below the menu bar, so your menu bar icons stay visible and clickable
+   while it is open. Press `⌃⌥N` any time to open it from the keyboard, and `⌘,` for Settings.
 
 Loft asks for a permission only when you enable the feature that needs it (see [Permissions](#permissions)).
 
@@ -134,7 +135,8 @@ echo "{\"token\":\"$T\",\"command\":\"worldclock\",\"add\":\"Tokyo\"}" | nc 127.
 ```
 
 Commands: `status open close toggle hide show tab music timer keepawake screenshot meeting clipboard shelf volume brightness
-settings snapshot ask mic audio colorpicker ocr eject reminders privacy lyrics calc worldclock lock debug`.
+settings snapshot ask mic audio colorpicker ocr eject reminders privacy lyrics calc worldclock lock activities demo debug`.
+`activities` lists what Loft is doing right now (timer, imminent meeting, keep-awake, playback) as structured records.
 A request with a `title` and no `command` shows a message island. `ask` blocks until the user taps a button in the pill and replies
 `{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG and `demo` fills the island with sample data; every screenshot in this
 README was taken that way, so none of them shows real data.
@@ -180,8 +182,9 @@ Calendar and Camera. Sign with your own Developer ID to avoid that.
 
 ## How it works
 
-- **Window.** One borderless, non-activating `NSPanel` above the menu bar, on every Space and over full-screen apps, centred on the notched display. Mouse events are accepted only inside the island's own frame, so clicks and keystrokes everywhere else reach the app underneath.
-- **Geometry.** `NSScreen.auxiliaryTopLeftArea` / `TopRightArea` and `safeAreaInsets.top` give the exact notch rectangle. The header lays tabs out beside the hardware notch, never under it.
+- **Window.** One borderless, non-activating `NSPanel` above the menu bar, on every Space and over full-screen apps, centred on the notched display. Mouse events are accepted only inside the island's own shape, so clicks and keystrokes everywhere else, including the menu bar beside the open panel, reach what is underneath.
+- **Geometry.** `NSScreen.auxiliaryTopLeftArea` / `TopRightArea` and `safeAreaInsets.top` give the exact notch rectangle. The closed pill lays its two sides out symmetrically around the notch so nothing is ever drawn under it; the open panel keeps a notch-sized head in the menu bar row and widens below it.
+- **Look.** Every surface is drawn as frosted glass with explicit fills and hairlines, and on macOS 26+ the system's Liquid Glass material is layered underneath for live lensing. One button style covers the island: glass, tinted prominent, and quiet.
 - **Now Playing.** Since macOS 15.4 `mediaremoted` answers only Apple-signed processes, so Loft bundles [MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter) and runs it inside `/usr/bin/perl`, streaming JSON diffs over a pipe. If that fails, it polls Spotify and Music over AppleScript.
 - **HUDs.** CoreAudio listeners for volume, `DisplayServices` for brightness. With Accessibility granted a `CGEvent` tap swallows the media keys and applies the change itself, so macOS never draws its overlay.
 - **Alerts.** One controller shows a full-bleed takeover panel per display, scaled to the screen, with keyboard shortcuts for every action.
@@ -204,7 +207,7 @@ Sources/Loft/
 
 ## Roadmap
 
-- Live Activities: publish timers, downloads, meetings and agent status through ActivityKit on macOS 27.3+, and keep the geometry notch-agnostic for Macs that ship a Dynamic Island
+- Live Activities: the activity records already exist (`activities` in the API); they become ActivityKit Live Activities as soon as the macOS SDK stops marking ActivityKit unavailable on macOS (build with `-D LOFT_ACTIVITYKIT`)
 - Bluetooth and AirPods connect island with battery levels
 - AI coding agents: Allow / Deny sessions and usage quotas in the pill for Claude Code, Codex and friends
 - Notification mirroring with inline reply

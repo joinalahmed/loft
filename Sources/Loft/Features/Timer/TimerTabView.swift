@@ -44,7 +44,7 @@ struct TimerTabView: View {
                         HStack(spacing: 6) {
                             ForEach([5, 10, 15, 25, 45, 60], id: \.self) { m in
                                 Button("\(m)") { timer.customMinutes = m; timer.startCountdown(minutes: m) }
-                                    .buttonStyle(.bordered).controlSize(.small)
+                                    .buttonStyle(.loftGlass).controlSize(.small)
                             }
                         }
                         Stepper("Custom: \(timer.customMinutes) min", value: $timer.customMinutes, in: 1...240).font(.system(size: 11))
@@ -56,8 +56,8 @@ struct TimerTabView: View {
                 HStack(spacing: 8) {
                     if timer.isRunning {
                         Button(timer.isPaused ? "Resume" : "Pause") { timer.isPaused ? timer.resume() : timer.pause() }
-                            .buttonStyle(.borderedProminent).tint(.orange)
-                        Button("Stop", role: .destructive) { timer.stop() }.buttonStyle(.bordered)
+                            .buttonStyle(.loftProminent(.orange))
+                        Button("Stop", role: .destructive) { timer.stop() }.buttonStyle(.loftGlass)
                     } else {
                         Button(startTitle) {
                             switch picker {
@@ -65,7 +65,7 @@ struct TimerTabView: View {
                             case 1: timer.startCountdown(minutes: timer.customMinutes)
                             default: timer.startStopwatch()
                             }
-                        }.buttonStyle(.borderedProminent).tint(.orange)
+                        }.buttonStyle(.loftProminent(.orange))
                     }
                 }.controlSize(.small)
             }

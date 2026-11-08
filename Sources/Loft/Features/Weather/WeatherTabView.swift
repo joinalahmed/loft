@@ -14,7 +14,7 @@ struct WeatherTabView: View {
                     HStack {
                         TextField("e.g. Lisbon", text: $cityDraft).textFieldStyle(.roundedBorder).frame(width: 180)
                             .onSubmit { prefs.weatherCity = cityDraft; weather.refreshIfNeeded(force: true) }
-                        Button("Save") { prefs.weatherCity = cityDraft; weather.refreshIfNeeded(force: true) }.buttonStyle(.borderedProminent)
+                        Button("Save") { prefs.weatherCity = cityDraft; weather.refreshIfNeeded(force: true) }.buttonStyle(.loftProminent())
                     }.controlSize(.small)
                     Text("No location permission needed. Data by Open-Meteo.").font(.system(size: 9)).foregroundStyle(.tertiary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)

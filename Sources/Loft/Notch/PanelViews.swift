@@ -13,11 +13,12 @@ struct PanelHeaderView: View {
         // The header shares its row with the hardware notch, so nothing may be drawn under it:
         // tabs flow left of the notch, continue right of it, and the tools sit at the far right.
         GeometryReader { geo in
-            let gap = vm.metrics.hasNotch ? vm.notchWidth + 12 : 0
+            // The header lives below the menu bar now, so no notch gap: one strip of tabs, tools at the right.
+            let gap: CGFloat = 0
             let toolCount = 1 + (prefs.headerPalette ? 1 : 0) + (prefs.headerScreenshot ? 1 : 0) + (prefs.headerKeepAwake ? 1 : 0) + (prefs.headerLock ? 1 : 0)
             let toolsWidth: CGFloat = CGFloat(toolCount) * 24 + 6 + 8
-            let leftWidth = max(60, (geo.size.width - gap) / 2 - 4)
-            let rightWidth = max(0, geo.size.width - leftWidth - gap - toolsWidth - 8)
+            let leftWidth = max(60, geo.size.width - toolsWidth - 8)
+            let rightWidth: CGFloat = 0
             let parts = layout(leftWidth: leftWidth, rightWidth: rightWidth)
             HStack(spacing: 0) {
                 strip(parts.left, more: parts.right.isEmpty && !parts.overflow.isEmpty ? parts.overflow : [], label: parts.label)
@@ -34,7 +35,7 @@ struct PanelHeaderView: View {
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .padding(.horizontal, 2)
-        .frame(height: vm.closedHeight)
+        .frame(height: vm.headerHeight)
     }
 
     private var tools: some View {
@@ -70,7 +71,7 @@ struct PanelHeaderView: View {
                 HeaderIcon(symbol: "gearshape.fill", help: "Settings") { SettingsWindowController.shared.show() }
             }
             .padding(.horizontal, 3)
-            .background(.white.opacity(0.06), in: Capsule())
+            .glass(Capsule(), strength: 0.7)
             .fixedSize()
     }
 
@@ -148,7 +149,7 @@ struct PanelHeaderView: View {
             }
         }
         .padding(3)
-        .background(.white.opacity(0.06), in: Capsule())
+        .glass(Capsule(), strength: 0.7)
         .animation(.smooth(duration: 0.25), value: tabs)
     }
 }
@@ -172,9 +173,13 @@ struct TabButton: View {
             .foregroundStyle(selected ? .black : (hover ? .white : .white.opacity(0.65)))
             .padding(.horizontal, selected && showLabel ? 10 : 8).frame(height: 22)
             .background {
-                if selected { Capsule().fill(tint).shadow(color: tint.opacity(0.35), radius: 6, y: 1) }
-                else if hover { Capsule().fill(.white.opacity(0.12)) }
+                if selected {
+                    Capsule().fill(tint)
+                    Capsule().fill(LinearGradient(colors: [.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center))
+                    Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.75)
+                } else if hover { Capsule().fill(.white.opacity(0.12)) }
             }
+            .shadow(color: selected ? tint.opacity(0.4) : .clear, radius: 7, y: 1)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -246,11 +251,7 @@ struct Card<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [.white.opacity(0.10), .white.opacity(0.055)], startPoint: .top, endPoint: .bottom))
-                RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.07), lineWidth: 0.5)
-            }
+            .glassCard(cornerRadius: 14)
     }
 }
 
@@ -261,7 +262,7 @@ struct EmptyHint: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
-                Circle().fill(.white.opacity(0.06)).frame(width: 44, height: 44)
+                Color.clear.frame(width: 44, height: 44).glass(Circle(), strength: 0.9)
                 Image(systemName: symbol).font(.system(size: 18, weight: .medium)).foregroundStyle(.secondary)
             }
             Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.85))

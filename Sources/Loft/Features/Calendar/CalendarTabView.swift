@@ -34,14 +34,14 @@ struct CalendarTabView: View {
                 Spacer()
                 if !isToday {
                     Button("Today") { selected = Calendar.current.startOfDay(for: Date()); month = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))! }
-                        .buttonStyle(.bordered).controlSize(.mini)
+                        .buttonStyle(.loftGlass).controlSize(.mini)
                 }
                 if isToday, let url = cal.nextEvent?.joinURL {
                     Button { NSWorkspace.shared.open(url) } label: { Label("Join next", systemImage: "video.fill") }
-                        .buttonStyle(.borderedProminent).tint(.green).controlSize(.mini)
+                        .buttonStyle(.loftProminent(.green)).controlSize(.mini)
                 }
                 Button { openInCalendar(selected) } label: { Image(systemName: "arrow.up.forward.app") }
-                    .buttonStyle(.bordered).controlSize(.mini).help("Open this day in Calendar")
+                    .buttonStyle(.loftGlass).controlSize(.mini).help("Open this day in Calendar")
             }
             if events.isEmpty {
                 EmptyHint(symbol: isToday ? "sun.max" : "calendar", title: isToday ? "Nothing more today" : "Nothing scheduled",
@@ -50,8 +50,11 @@ struct CalendarTabView: View {
                 ScrollView {
                     VStack(spacing: 4) {
                         ForEach(events) { ev in EventRow(event: ev) }
+                        Color.clear.frame(height: 10)
                     }
-                }.scrollIndicators(.never)
+                }
+                .scrollIndicators(.never)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.88), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
             }
             HStack {
                 Text("Alerts \(prefs.meetingLeadMinutes) min before · \(cal.calendarSources.count) source\(cal.calendarSources.count == 1 ? "" : "s")")
@@ -83,7 +86,7 @@ struct CalendarTabView: View {
                 Button(google.isConnecting ? "Waiting for Google…" : "Connect Google Calendar") { SettingsWindowController.shared.show(tab: .features) }
                     .disabled(google.isConnecting)
             }
-            .buttonStyle(.borderedProminent).controlSize(.small)
+            .buttonStyle(.loftProminent()).controlSize(.small)
             Text("Apple Calendar covers every account in System Settings. Connect Google directly to sync without adding it to macOS.")
                 .font(.system(size: 10)).foregroundStyle(.tertiary).multilineTextAlignment(.center).frame(maxWidth: 380)
         }
@@ -213,7 +216,7 @@ struct EventRow: View {
             }
             Spacer()
             if !past, let url = event.joinURL, !compact {
-                Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.borderedProminent).controlSize(.mini).tint(.green)
+                Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.loftProminent()).controlSize(.mini).tint(.green)
             }
         }
         .padding(.horizontal, 6).padding(.vertical, 4)

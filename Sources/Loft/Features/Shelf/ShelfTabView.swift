@@ -18,7 +18,7 @@ struct ShelfTabView: View {
                             Button { ScreenshotManager.shared.capture(.region) } label: { Label("Region", systemImage: "camera.viewfinder") }
                             Button { ScreenshotManager.shared.capture(.window) } label: { Label("Window", systemImage: "macwindow") }
                             Button { ScreenshotManager.shared.capture(.full) } label: { Label("Screen", systemImage: "rectangle.dashed") }
-                        }.buttonStyle(.bordered).controlSize(.small).padding(.bottom, 10)
+                        }.buttonStyle(.loftGlass).controlSize(.small).padding(.bottom, 10)
                     }
             } else {
                 ScrollView(.horizontal) {
@@ -36,7 +36,7 @@ struct ShelfTabView: View {
                     Button { shelf.copyToClipboard(shelf.items) } label: { Label("Copy all", systemImage: "doc.on.doc") }
                     Button(role: .destructive) { shelf.clear() } label: { Label("Clear", systemImage: "trash") }
                 }
-                .buttonStyle(.bordered).controlSize(.small).font(.system(size: 11))
+                .buttonStyle(.loftGlass).controlSize(.small).font(.system(size: 11))
             }
         }
         .onDrop(of: [.fileURL, .image, .utf8PlainText], isTargeted: $targeted) { providers in

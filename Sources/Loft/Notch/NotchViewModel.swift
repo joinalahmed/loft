@@ -56,6 +56,24 @@ final class NotchViewModel: ObservableObject {
     @Published private(set) var transient: Transient?
     /// Rendered island frame in hosting-view coordinates; everything outside is click-through.
     var islandFrame: CGRect = .zero
+    /// Natural width of the live row (artwork + notch + bars…); the open panel's head grows to fit it.
+    @Published var compactWidth: CGFloat = 0
+    let headerHeight: CGFloat = 36
+
+    /// Width of the top band while open: the notch plus whatever the live row needs. Nil = full width.
+    var headWidth: CGFloat? {
+        guard state == .open, metrics.hasNotch else { return nil }
+        return max(metrics.closedSize.width, compactWidth + 8)
+    }
+
+    /// True when a window-local point (flipped, y down) is on the visible island. The transparent
+    /// parts of the top band beside the head are not part of the island.
+    func islandContains(_ p: CGPoint) -> Bool {
+        let frame = islandFrame.insetBy(dx: -4, dy: -4)
+        guard frame.contains(p) else { return false }
+        if let head = headWidth, p.y < islandFrame.minY + closedHeight + 2, abs(p.x - islandFrame.midX) > head / 2 + 4 { return false }
+        return true
+    }
     @Published var isHidden = false
     /// Set while the frontmost app is full screen and the "hide in fullscreen" preference is on.
     @Published var suppressed = false
@@ -72,12 +90,12 @@ final class NotchViewModel: ObservableObject {
     private var transientTask: Task<Void, Never>?
     private var autoCloseTask: Task<Void, Never>?
 
-    var openSize: CGSize { CGSize(width: prefs.panelWidth, height: prefs.panelHeight) }
+    var openSize: CGSize { CGSize(width: prefs.panelWidth, height: prefs.panelHeight + headerHeight) }
     var closedHeight: CGFloat { metrics.closedSize.height }
     var notchWidth: CGFloat { metrics.closedSize.width }
 
     // Corner radii follow the real notch when closed and swell when open.
-    var topRadius: CGFloat { state == .open ? 19 : (metrics.hasNotch ? 6 : 0) }
+    var topRadius: CGFloat { state == .open ? (metrics.hasNotch ? 6 : 19) : (metrics.hasNotch ? 6 : 0) }
     var bottomRadius: CGFloat { state == .open ? 24 : (metrics.hasNotch ? 14 : closedHeight / 2) }
 
     private init() {}

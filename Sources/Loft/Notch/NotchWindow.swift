@@ -43,7 +43,7 @@ final class IslandHostingView: NSHostingView<NotchRootView> {
         guard !MainActor.assumeIsolated({ vm.isHidden }) else { return nil }
         var p = convert(point, from: superview)
         if !isFlipped { p.y = bounds.height - p.y }
-        let frame = vm.islandFrame.isEmpty ? bounds : vm.islandFrame.insetBy(dx: -4, dy: -4)
-        return frame.contains(p) ? super.hitTest(point) : nil
+        let inside = MainActor.assumeIsolated { vm.islandFrame.isEmpty ? bounds.contains(p) : vm.islandContains(p) }
+        return inside ? super.hitTest(point) : nil
     }
 }

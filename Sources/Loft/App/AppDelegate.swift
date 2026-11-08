@@ -91,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func windowFrame(on screen: NSScreen, expanded: Bool) -> NSRect {
         let pad: CGFloat = 40
         let width = max(prefs.panelWidth, 760) + pad * 2
-        let height = expanded ? prefs.panelHeight + pad : vm.closedHeight + 10   // closed: stay within the menu bar
+        let height = expanded ? vm.openSize.height + pad : vm.closedHeight + 10   // closed: stay within the menu bar
         return NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
     }
 
@@ -174,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CapsLockMonitor.shared.start()
         MediaKeyInterceptor.shared.applyPreferences()
         LocalAPIServer.shared.applyPreferences()
+        _ = LiveActivityHub.shared
         _ = TimerManager.shared
         _ = ShelfManager.shared
         _ = ScreenshotManager.shared

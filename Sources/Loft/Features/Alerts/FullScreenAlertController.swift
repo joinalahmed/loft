@@ -86,64 +86,87 @@ struct FullScreenAlertView: View {
 
     var body: some View {
         GeometryReader { geo in
-            // Full-bleed takeover: the whole display dims to a blurred black and the content
-            // scales with the screen, so it cannot be missed and reads from across the room.
-            let scale = max(0.85, min(1.6, geo.size.width / 1440))
+            // Full-screen takeover: the display dims behind a frosted glass sheet that scales
+            // with the screen, so the alert cannot be missed and reads from across the room.
+            let scale = max(0.85, min(1.5, geo.size.width / 1440))
             ZStack {
                 Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
-                Color.black.opacity(0.78).ignoresSafeArea()
-                RadialGradient(colors: [alert.accent.opacity(0.28), .clear], center: .center, startRadius: 0, endRadius: geo.size.width * 0.45)
+                Color.black.opacity(0.62).ignoresSafeArea()
+                RadialGradient(colors: [alert.accent.opacity(0.32), .clear], center: .init(x: 0.5, y: 0.35), startRadius: 0, endRadius: geo.size.width * 0.5)
                     .ignoresSafeArea().blendMode(.screen)
-                content(scale: scale)
-                    .frame(maxWidth: min(geo.size.width * 0.72, 1100))
-                    .scaleEffect(appeared ? 1 : 0.96)
+                sheet(scale: scale)
+                    .frame(maxWidth: min(geo.size.width * 0.62, 820 * scale))
+                    .scaleEffect(appeared ? 1 : 0.94)
                     .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 18)
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .contentShape(Rectangle())
             .onTapGesture { ctl.dismiss() }
-            .onAppear { withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { appeared = true } }
+            .onAppear { withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { appeared = true } }
         }
         .preferredColorScheme(.dark)
     }
 
-    private func content(scale: CGFloat) -> some View {
-        VStack(spacing: 0) {
+    private func sheet(scale: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12 * scale) {
                 ZStack {
-                    Circle().fill(alert.accent.opacity(0.18)).frame(width: 56 * scale, height: 56 * scale)
-                    Image(systemName: alert.symbol).font(.system(size: 24 * scale, weight: .semibold)).foregroundStyle(alert.accent)
+                    Circle().fill(alert.accent.opacity(0.22))
+                    Circle().strokeBorder(alert.accent.opacity(0.5), lineWidth: 1)
+                    Image(systemName: alert.symbol).font(.system(size: 20 * scale, weight: .semibold)).foregroundStyle(alert.accent)
                 }
-                Text(alert.eyebrow).font(.system(size: 18 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                .frame(width: 46 * scale, height: 46 * scale)
+                Text(alert.eyebrow).font(.system(size: 16 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+                Spacer(minLength: 8)
                 if let countdown = alert.countdown {
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        Text(countdown())
-                            .font(.system(size: 18 * scale, weight: .semibold, design: .rounded)).monospacedDigit()
-                            .foregroundStyle(alert.accent)
-                            .padding(.horizontal, 14 * scale).frame(height: 34 * scale)
-                            .background(alert.accent.opacity(0.14), in: Capsule())
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        HStack(spacing: 8 * scale) {
+                            Circle().fill(alert.accent).frame(width: 7 * scale, height: 7 * scale)
+                                .opacity(Int(ctx.date.timeIntervalSince1970) % 2 == 0 ? 1 : 0.35)
+                                .animation(.easeInOut(duration: 0.8), value: Int(ctx.date.timeIntervalSince1970))
+                            Text(countdown())
+                                .font(.system(size: 16 * scale, weight: .semibold, design: .rounded)).monospacedDigit()
+                                .foregroundStyle(alert.accent)
+                        }
+                        .padding(.horizontal, 14 * scale).frame(height: 34 * scale)
+                        .glass(Capsule(), tint: alert.accent, strength: 1.1)
                     }
                 }
             }
-            .padding(.bottom, 34 * scale)
+            .padding(.bottom, 30 * scale)
 
             Text(alert.title)
-                .font(.system(size: 64 * scale, weight: .bold, design: .rounded)).tracking(-1)
-                .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.6)
+                .font(.system(size: 50 * scale, weight: .bold, design: .rounded)).tracking(-0.8)
+                .lineLimit(3).minimumScaleFactor(0.6)
+                .fixedSize(horizontal: false, vertical: true)
             if let detail = alert.detail {
-                Text(detail).font(.system(size: 24 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.75))
-                    .multilineTextAlignment(.center).lineLimit(2).padding(.top, 14 * scale)
+                Text(detail).font(.system(size: 21 * scale, weight: .medium)).foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(2).padding(.top, 12 * scale)
             }
             if let footnote = alert.footnote {
-                Text(footnote).font(.system(size: 15 * scale, design: .monospaced)).foregroundStyle(.white.opacity(0.4)).lineLimit(1).padding(.top, 18 * scale)
+                HStack(spacing: 6 * scale) {
+                    Image(systemName: "link").font(.system(size: 11 * scale, weight: .semibold))
+                    Text(footnote).font(.system(size: 13 * scale, weight: .medium, design: .monospaced))
+                }
+                .foregroundStyle(.white.opacity(0.5))
+                .padding(.horizontal, 10 * scale).frame(height: 26 * scale)
+                .glass(Capsule(), strength: 0.7)
+                .padding(.top, 18 * scale)
             }
 
-            HStack(spacing: 16 * scale) {
+            Rectangle().fill(.white.opacity(0.08)).frame(height: 1).padding(.vertical, 28 * scale)
+
+            HStack(spacing: 12 * scale) {
                 ForEach(alert.actions.filter { $0.style == .quiet }) { a in AlertButton(action: a, accent: alert.accent, scale: scale) }
+                Spacer(minLength: 0)
                 ForEach(alert.actions.filter { $0.style != .quiet }) { a in AlertButton(action: a, accent: alert.accent, scale: scale) }
             }
-            .padding(.top, 56 * scale)
         }
+        .padding(40 * scale)
+        .glass(RoundedRectangle(cornerRadius: 34 * scale, style: .continuous), tint: alert.accent, strength: 1.25)
+        .shadow(color: .black.opacity(0.45), radius: 40 * scale, y: 20 * scale)
+        .onTapGesture { }   // taps on the sheet do not dismiss
     }
 }
 
@@ -159,25 +182,35 @@ private struct AlertButton: View {
         let quiet = action.style == .quiet
         Button { ctl.perform(action) } label: {
             HStack(spacing: 9 * scale) {
-                if let s = action.symbol { Image(systemName: s).font(.system(size: 17 * scale, weight: .semibold)) }
-                Text(action.title).font(.system(size: 19 * scale, weight: primary ? .semibold : .medium))
+                if let s = action.symbol { Image(systemName: s).font(.system(size: 16 * scale, weight: .semibold)) }
+                Text(action.title).font(.system(size: 18 * scale, weight: primary ? .semibold : .medium))
                 if let hint = action.hint {
-                    Text(hint).font(.system(size: 12 * scale, weight: .semibold, design: .rounded))
-                        .padding(.horizontal, 6 * scale).frame(height: 22 * scale)
+                    Text(hint).font(.system(size: 11.5 * scale, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 6 * scale).frame(height: 21 * scale)
                         .background((primary ? Color.black : Color.white).opacity(0.14), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .opacity(0.9)
                 }
             }
-            .foregroundStyle(primary ? .black : .white.opacity(quiet ? 0.65 : 0.92))
-            .padding(.horizontal, (primary ? 28 : 22) * scale).frame(height: 56 * scale)
+            .foregroundStyle(primary ? Color.black.opacity(0.9) : .white.opacity(quiet ? (hover ? 0.95 : 0.65) : 0.94))
+            .padding(.horizontal, (primary ? 26 : 20) * scale).frame(height: 52 * scale)
             .background {
-                if primary { Capsule().fill(accent).brightness(hover ? 0.08 : 0) }
-                else if !quiet || hover { Capsule().fill(.white.opacity(hover ? 0.16 : 0.10)) }
+                if primary {
+                    Capsule().fill(accent)
+                    Capsule().fill(LinearGradient(colors: [.white.opacity(0.3), .clear], startPoint: .top, endPoint: .center))
+                    Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.75)
+                    if hover { Capsule().fill(.white.opacity(0.08)) }
+                } else if !quiet {
+                    Color.clear.glass(Capsule(), strength: hover ? 1.4 : 1.05, interactive: true)
+                } else if hover {
+                    Capsule().fill(.white.opacity(0.08))
+                }
             }
+            .shadow(color: primary ? accent.opacity(0.45) : .clear, radius: 14 * scale, y: 4 * scale)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .animation(.smooth(duration: 0.15), value: hover)
         .if(action.key != nil) { $0.keyboardShortcut(action.key!, modifiers: []) }
     }
 }

@@ -11,7 +11,7 @@ struct NotchRootView: View {
     private var isOpen: Bool { vm.state == .open }
 
     private var shape: NotchShape {
-        NotchShape(topCornerRadius: vm.topRadius, bottomCornerRadius: vm.bottomRadius)
+        NotchShape(topCornerRadius: vm.topRadius, bottomCornerRadius: vm.bottomRadius, headWidth: vm.headWidth, headHeight: vm.closedHeight)
     }
 
     private var tint: Color {
@@ -45,8 +45,10 @@ struct NotchRootView: View {
             CompactRowView()
                 .frame(height: vm.closedHeight)
             if isOpen {
+                PanelHeaderView()
+                    .frame(width: vm.openSize.width - vm.topRadius * 2 - 24, height: vm.headerHeight)
                 PanelContentView()
-                    .frame(width: vm.openSize.width - vm.topRadius * 2 - 24, height: vm.openSize.height - vm.closedHeight - 12)
+                    .frame(width: vm.openSize.width - vm.topRadius * 2 - 24, height: vm.openSize.height - vm.closedHeight - vm.headerHeight - 12)
                     .padding(.bottom, 12)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.92, anchor: .top).combined(with: .opacity).animation(.smooth(duration: 0.3).delay(0.05)),
@@ -56,10 +58,19 @@ struct NotchRootView: View {
         .padding(.horizontal, vm.topRadius)
         .padding(.horizontal, isOpen ? 12 : 0)
         .frame(width: isOpen ? vm.openSize.width : nil, alignment: .top)
-        .background(Color.black)
+        .background {
+            ZStack {
+                Color.black
+                if isOpen {
+                    LinearGradient(colors: [.clear, .clear, tint.opacity(0.10)], startPoint: .top, endPoint: .bottom)
+                    RadialGradient(colors: [tint.opacity(0.14), .clear], center: .bottom, startRadius: 0, endRadius: vm.openSize.width * 0.55)
+                }
+            }
+        }
         .overlay(alignment: .top) {
             // Hairline that hides sub-pixel seams between island and bezel.
-            Rectangle().fill(.black).frame(height: 1).padding(.horizontal, vm.topRadius)
+            Rectangle().fill(.black).frame(width: vm.headWidth.map { max(0, $0 - vm.topRadius * 2) }, height: 1)
+                .padding(.horizontal, vm.headWidth == nil ? vm.topRadius : 0)
         }
         .clipShape(shape)
         .shadow(color: (isOpen || vm.isHovering || vm.transient != nil) && prefs.enableShadow ? .black.opacity(0.55) : .clear,

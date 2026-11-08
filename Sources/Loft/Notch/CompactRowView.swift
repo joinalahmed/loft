@@ -15,11 +15,8 @@ struct CompactRowView: View {
     @Environment(\.islandTint) private var tint
 
     var body: some View {
-        if vm.state == .open {
-            PanelHeaderView()
-        } else {
-            closedContent
-        }
+        closedContent
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { vm.compactWidth = $0 }
     }
 
     // MARK: Closed
@@ -34,11 +31,13 @@ struct CompactRowView: View {
             TransientView(transient: t, side: side)
         } else if let ev = cal.imminentEvent, prefs.calendarEnabled, prefs.meetingAlertsEnabled {
             let isCall = ev.isVideoCall
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 Image(systemName: isCall ? "video.fill" : "calendar")
                     .font(.system(size: 12, weight: .bold)).foregroundStyle(.green)
                     .frame(width: side).padding(.horizontal, inset)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Text(ev.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).frame(maxWidth: 120, alignment: .leading)
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -48,27 +47,33 @@ struct CompactRowView: View {
                     }
                 }
                 .padding(.horizontal, inset + 4)
+                }
             }
             .frame(height: h)
         } else if timer.isRunning && prefs.timerEnabled {
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 TimerRingView(progress: timer.progress, side: side)
                     .padding(.horizontal, inset)
                     .frame(width: side + inset * 2)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 Text(timer.remaining.clockString)
                     .font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(timer.mode == .pomodoroBreak ? .green : .orange)
                     .padding(.horizontal, inset)
                     .frame(width: 66, alignment: .trailing)
+                }
             }
             .frame(height: h)
         } else if music.isActive && prefs.musicLiveActivity {
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 AlbumArtView(image: music.artwork, cornerRadius: 4)
                     .frame(width: side, height: side)
                     .padding(.horizontal, inset)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 Group {
                     if prefs.musicVisualizer {
                         AudioBarsView(isPlaying: music.isPlaying, tint: tint)
@@ -80,10 +85,12 @@ struct CompactRowView: View {
                 }
                 .frame(width: side, height: side)
                 .padding(.horizontal, inset)
+                }
             }
             .frame(height: h)
         } else {
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 if privacy.inCall, prefs.callIsland {
                     // Live call: timer on the left, mic mute button on the right.
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -106,7 +113,8 @@ struct CompactRowView: View {
                         }
                     }.padding(.horizontal, inset + 2).help(d.name)
                 }
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 if privacy.inCall, prefs.callIsland {
                     Button { audio.toggleMicMute() } label: {
                         Image(systemName: audio.micMuted ? "mic.slash.fill" : "mic.fill").font(.system(size: 12, weight: .semibold))
@@ -123,6 +131,7 @@ struct CompactRowView: View {
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .padding(.horizontal, inset + 2)
+                }
                 }
             }
             .frame(height: h)
@@ -148,27 +157,34 @@ struct TransientView: View {
         case .keyboardBacklight(let v):
             hud(symbol: "keyboard", value: v, color: .white, height: h)
         case .capsLock(let on):
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 Image(systemName: "capslock.fill").font(.system(size: 13, weight: .bold))
                     .foregroundStyle(on ? .green : .secondary)
                     .frame(width: side).padding(.horizontal, 6)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 Text(on ? "Caps Lock On" : "Caps Lock Off").font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(on ? .green : .secondary)
                     .padding(.horizontal, 10)
+                }
             }.frame(height: h)
         case .battery(let level, let charging, let pluggedIn, let low):
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 Text(low ? "Low Battery" : charging ? "Charging" : pluggedIn ? "Plugged In" : "On Battery")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(low ? .red : charging ? .green : .white)
                     .padding(.horizontal, 10)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 BatteryGlyph(level: level, charging: charging, low: low)
                     .padding(.horizontal, 10)
+                }
             }.frame(height: h)
         case .message(let m):
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 if let thumb = m.thumbnail {
                     Image(nsImage: thumb).resizable().aspectRatio(contentMode: .fill)
                         .frame(width: side, height: side).clipShape(RoundedRectangle(cornerRadius: 4))
@@ -178,7 +194,8 @@ struct TransientView: View {
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(m.tint)
                         .frame(width: side).padding(.horizontal, 6)
                 }
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(m.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                     if let s = m.subtitle, !s.isEmpty {
@@ -189,11 +206,13 @@ struct TransientView: View {
                 }
                 .frame(maxWidth: 170, alignment: .leading)
                 .padding(.horizontal, 10)
+                }
             }.frame(height: h)
             .contentShape(Rectangle())
             .onTapGesture { if let a = m.action { vm.dismissTransient(); a() } }
         case .ask(let q):
-            HStack(spacing: 0) {
+            NotchSides(gap: vm.notchWidth) {
+                HStack(spacing: 0) {
                 Image(systemName: q.symbol ?? "questionmark.circle.fill")
                     .font(.system(size: 13, weight: .semibold)).foregroundStyle(.orange)
                     .frame(width: side).padding(.horizontal, 6)
@@ -202,7 +221,8 @@ struct TransientView: View {
                     if let s = q.subtitle, !s.isEmpty { Text(s).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1) }
                 }
                 .frame(maxWidth: 150, alignment: .leading)
-                Spacer().frame(width: vm.notchWidth)
+                }
+                HStack(spacing: 0) {
                 HStack(spacing: 5) {
                     ForEach(Array(q.options.prefix(3).enumerated()), id: \.offset) { i, opt in
                         Button { vm.answer(q, with: opt) } label: {
@@ -214,16 +234,19 @@ struct TransientView: View {
                     }
                 }
                 .padding(.horizontal, 8)
+                }
             }.frame(height: h)
         }
     }
 
     private func hud(symbol: String, value: Double, color: Color, height: CGFloat) -> some View {
-        HStack(spacing: 0) {
+        NotchSides(gap: vm.notchWidth) {
+            HStack(spacing: 0) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(color)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: side).padding(.horizontal, 6)
-            Spacer().frame(width: vm.notchWidth)
+            }
+            HStack(spacing: 0) {
             HStack(spacing: 8) {
                 HUDBar(value: value, color: color).frame(width: 96, height: 6)
                 Text("\(Int((value * 100).rounded()))")
@@ -231,6 +254,7 @@ struct TransientView: View {
                     .foregroundStyle(.white.opacity(0.85)).frame(width: 26, alignment: .trailing)
             }
             .padding(.horizontal, 10)
+            }
         }
         .frame(height: height)
     }

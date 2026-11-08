@@ -154,7 +154,7 @@ struct HomeTabView: View {
                 Text(ev.startDate > Date() ? "in \(relative(ev.startDate))" : "now · ends \(ev.endDate.shortTime)")
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                 if let url = ev.joinURL {
-                    Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.borderedProminent).tint(.green).controlSize(.mini)
+                    Button("Join") { NSWorkspace.shared.open(url) }.buttonStyle(.loftProminent(.green)).controlSize(.mini)
                 }
             } else {
                 Text("No more events").font(.system(size: 12, weight: .semibold))
@@ -168,7 +168,7 @@ struct HomeTabView: View {
             if timer.isRunning {
                 Text(timer.remaining.clockString).font(.system(size: 16, weight: .bold, design: .rounded)).monospacedDigit()
             } else {
-                Button("Start \(prefs.pomodoroWorkMinutes) min") { timer.startPomodoro() }.buttonStyle(.bordered).controlSize(.mini)
+                Button("Start \(prefs.pomodoroWorkMinutes) min") { timer.startPomodoro() }.buttonStyle(.loftGlass).controlSize(.mini)
             }
         }
     }
@@ -216,7 +216,7 @@ struct HomeTabView: View {
             HStack(spacing: 4) {
                 Button("Region") { ScreenshotManager.shared.capture(.region) }
                 Button("Window") { ScreenshotManager.shared.capture(.window) }
-            }.buttonStyle(.bordered).controlSize(.mini)
+            }.buttonStyle(.loftGlass).controlSize(.mini)
             Text("to shelf · ⌃⌥⇧4").font(.system(size: 9)).foregroundStyle(.tertiary)
         }
     }
@@ -252,11 +252,8 @@ struct MiniCard<Content: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(9)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(LinearGradient(colors: [.white.opacity(hover ? 0.14 : 0.10), .white.opacity(hover ? 0.09 : 0.055)], startPoint: .top, endPoint: .bottom))
-                RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(hover ? color.opacity(0.35) : .white.opacity(0.07), lineWidth: 0.5)
-            }
+            .glass(RoundedRectangle(cornerRadius: 12, style: .continuous), tint: hover ? color : nil, strength: hover ? 1.2 : 1, interactive: true)
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(color.opacity(hover ? 0.35 : 0), lineWidth: 0.75))
             .scaleEffect(hover ? 1.012 : 1)
             .animation(.smooth(duration: 0.18), value: hover)
         }
