@@ -95,6 +95,18 @@ final class TimerManager: ObservableObject {
         isPaused = false
     }
 
+    /// Adds time to a running countdown or focus/break session.
+    func extend(minutes: Int) {
+        guard isRunning, mode != .stopwatch else { return }
+        let delta = TimeInterval(minutes * 60)
+        total += delta
+        if isPaused { pausedRemaining += delta } else { endDate = endDate.addingTimeInterval(delta) }
+        now = Date()
+    }
+
+    /// Time of day the current countdown ends, nil for stopwatch / idle / paused.
+    var endsAt: Date? { isRunning && !isPaused && mode != .stopwatch ? endDate : nil }
+
     func stop() {
         ticker?.invalidate(); ticker = nil
         isRunning = false; isPaused = false; mode = .idle; total = 0

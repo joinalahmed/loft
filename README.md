@@ -25,7 +25,7 @@ Calendar you choose to connect).
 
 ## Install
 
-1. Download `Loft-x.y.z.dmg` from the [latest release](https://github.com/joinalahmed/loft/releases/latest) and drag Loft to Applications.
+1. **[Download the latest Loft DMG](https://github.com/joinalahmed/loft/releases/latest)** (universal, about 4 MB; a zip and SHA-256 checksums are attached to every release) and drag Loft to Applications.
 2. Loft is signed ad hoc, not notarised, so the first launch needs one extra step: **right-click Loft.app → Open → Open**,
    or from a terminal:
    ```sh
@@ -60,7 +60,7 @@ Hover, click, or press `⌃⌥N`. Tabs can be switched on, off and reordered in 
 | **Music** | artwork, scrubber, ±15 s, transport, source app, time-synced lyrics, audio-output switcher |
 | **Shelf** | drop files on the notch and drag them out later; AirDrop, copy, reveal; convert / resize / OCR images; zip anything |
 | **Clipboard** | searchable history with pins: text, links, colours, images, files; double-click pastes |
-| **Timer** | Pomodoro with daily session history, countdown presets, drift-free stopwatch |
+| **Timer** | Focus sessions with break and duration chips, countdown presets, +1 min while running, drift-free stopwatch, daily and weekly history |
 | **Calendar** | month grid with event dots, day agenda, Join buttons; every macOS account plus a directly connected Google account |
 | **Reminders** | overdue / today / later across lists; check off, add with a due date; full-screen alert when due |
 | **Notes** | one autosaved quick note |
