@@ -64,6 +64,13 @@ extension TimeInterval {
 }
 
 extension Date {
+    /// Time without AM/PM, for the tight space beside the notch ("2:58").
+    var pillTime: String {
+        let f = DateFormatter()
+        f.locale = Locale.current
+        f.setLocalizedDateFormatFromTemplate(DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") == true ? "hmm" : "Hmm")
+        return f.string(from: self).replacingOccurrences(of: f.amSymbol, with: "").replacingOccurrences(of: f.pmSymbol, with: "").trimmingCharacters(in: .whitespaces)
+    }
     var shortTime: String {
         let f = DateFormatter()
         f.timeStyle = .short

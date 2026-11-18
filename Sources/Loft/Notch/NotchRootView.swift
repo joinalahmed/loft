@@ -11,7 +11,7 @@ struct NotchRootView: View {
     private var isOpen: Bool { vm.state == .open }
 
     private var shape: NotchShape {
-        NotchShape(topCornerRadius: vm.topRadius, bottomCornerRadius: vm.bottomRadius, headWidth: vm.headWidth, headHeight: vm.closedHeight)
+        NotchShape(topCornerRadius: vm.topRadius, bottomCornerRadius: vm.bottomRadius, headWidth: vm.shapeHeadWidth, headHeight: vm.closedHeight)
     }
 
     private var tint: Color {

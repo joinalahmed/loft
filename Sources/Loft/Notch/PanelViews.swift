@@ -229,6 +229,7 @@ struct PanelContentView: View {
                 case .mirror: MirrorTabView()
                 case .weather: WeatherTabView()
                 case .worldClock: WorldClockTabView()
+                case .salah: SalahTabView()
                 }
             }
             .id(vm.tab)

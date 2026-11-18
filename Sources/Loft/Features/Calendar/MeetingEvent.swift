@@ -19,6 +19,10 @@ struct MeetingEvent: Identifiable, Equatable {
     var declined: Bool
     var canceled: Bool
     var source: Source
+    /// Google calendar the event lives in (needed to delete it); nil for EventKit events.
+    var calendarID: String?
+    /// The calendar accepts changes, so the event can be deleted from the island.
+    var editable: Bool
 
     static func == (a: MeetingEvent, b: MeetingEvent) -> Bool { a.id == b.id && a.startDate == b.startDate && a.title == b.title }
 
@@ -50,10 +54,12 @@ struct MeetingEvent: Identifiable, Equatable {
     }
 
     init(id: String, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, url: URL? = nil,
-         calendarTitle: String, color: Color, attendeeCount: Int = 0, declined: Bool = false, canceled: Bool = false, source: Source) {
+         calendarTitle: String, color: Color, attendeeCount: Int = 0, declined: Bool = false, canceled: Bool = false, source: Source,
+         calendarID: String? = nil, editable: Bool = false) {
         self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay
         self.location = location; self.notes = notes; self.url = url; self.calendarTitle = calendarTitle; self.color = color
         self.attendeeCount = attendeeCount; self.declined = declined; self.canceled = canceled; self.source = source
+        self.calendarID = calendarID; self.editable = editable
     }
 
     init(_ ev: EKEvent) {
@@ -64,6 +70,7 @@ struct MeetingEvent: Identifiable, Equatable {
                   calendarTitle: ev.calendar?.title ?? "Calendar",
                   color: Color(cgColor: ev.calendar?.cgColor ?? NSColor.systemBlue.cgColor),
                   attendeeCount: ev.attendees?.count ?? 0,
-                  declined: me?.participantStatus == .declined, canceled: ev.status == .canceled, source: .apple)
+                  declined: me?.participantStatus == .declined, canceled: ev.status == .canceled, source: .apple,
+                  editable: ev.calendar?.allowsContentModifications ?? false)
     }
 }

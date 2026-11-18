@@ -31,6 +31,15 @@ enum Keychain {
         return value
     }
 
+    /// Reads on a background thread: macOS may show an "allow access" prompt that blocks the
+    /// caller until it is answered, and that must never be the main thread.
+    static func getAsync(_ key: String) async -> String? {
+        await Task.detached(priority: .userInitiated) { get(key) }.value
+    }
+    static func setAsync(_ value: String, for key: String) async {
+        await Task.detached(priority: .userInitiated) { set(value, for: key) }.value
+    }
+
     static func delete(_ key: String) {
         SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: key] as CFDictionary)
     }

@@ -13,6 +13,7 @@ echo "▶ $NAME $VERSION ($BUILD)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" Resources/Info.plist
 
+export LOFT_ADHOC=1   # distributed builds stay ad-hoc; the local signing identity exists only on this Mac
 if [[ "${UNIVERSAL:-1}" == "1" ]]; then scripts/build.sh release --universal; else scripts/build.sh release; fi
 lipo -archs "$APP/Contents/MacOS/$NAME" | sed 's/^/   archs: /'
 codesign --verify --deep --strict "$APP" && echo "   signature ok (ad-hoc)"

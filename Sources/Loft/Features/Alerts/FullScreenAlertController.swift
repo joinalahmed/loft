@@ -24,6 +24,9 @@ struct FullScreenAlert: Identifiable {
     var countdown: (() -> String)?   // live text at the top right, refreshed every second
     var actions: [Action]
     var autoDismiss: TimeInterval = 90
+    /// Replaces the standard sheet with a purpose-built full-screen page (it draws its own backdrop).
+    var custom: AnyView?
+    var onDismiss: (() -> Void)?
 }
 
 @MainActor
@@ -68,10 +71,22 @@ final class FullScreenAlertController: ObservableObject {
         action.handler()
     }
 
+    /// Keeps the current alert up for at least `seconds` more (e.g. while audio plays).
+    func extendAutoDismiss(_ seconds: TimeInterval) {
+        guard current != nil else { return }
+        autoDismiss?.cancel()
+        autoDismiss = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            self?.dismiss()
+        }
+    }
+
     func dismiss(animated: Bool = true) {
         autoDismiss?.cancel()
         let ws = windows
         windows.removeAll()
+        current?.onDismiss?()
         current = nil
         guard animated else { ws.forEach { $0.close() }; return }
         NSAnimationContext.runAnimationGroup({ ctx in ctx.duration = 0.18; ws.forEach { $0.animator().alphaValue = 0 } },
@@ -85,6 +100,10 @@ struct FullScreenAlertView: View {
     @State private var appeared = false
 
     var body: some View {
+        if let custom = alert.custom { custom } else { standard }
+    }
+
+    private var standard: some View {
         GeometryReader { geo in
             // Full-screen takeover: the display dims behind a frosted glass sheet that scales
             // with the screen, so the alert cannot be missed and reads from across the room.

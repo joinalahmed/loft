@@ -138,7 +138,7 @@ Commands: `status open close toggle hide show tab music timer keepawake screensh
 settings snapshot ask mic audio colorpicker ocr eject reminders privacy lyrics calc worldclock lock activities demo debug`.
 `activities` lists what Loft is doing right now (timer, imminent meeting, keep-awake, playback) as structured records.
 A request with a `title` and no `command` shows a message island. `ask` blocks until the user taps a button in the pill and replies
-`{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG and `demo` fills the island with sample data; every screenshot in this
+`{"answer":"Allow","approved":true}`. `snapshot` renders the island or a window to a PNG with a transparent canvas, preserving rounded edges and shadows, and `demo` fills the island with sample data; every screenshot in this
 README was taken that way, so none of them shows real data.
 
 **Claude Code hooks** live in `scripts/claude-code/`: `loft-notify.sh` shows Stop and Notification events as islands,

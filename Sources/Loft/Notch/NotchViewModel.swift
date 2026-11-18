@@ -62,8 +62,16 @@ final class NotchViewModel: ObservableObject {
 
     /// Width of the top band while open: the notch plus whatever the live row needs. Nil = full width.
     var headWidth: CGFloat? {
-        guard state == .open, metrics.hasNotch else { return nil }
-        return max(metrics.closedSize.width, compactWidth + 8)
+        guard state == .open else { return nil }
+        return shapeHeadWidth
+    }
+
+    /// The same width in both states, for the island's outline. Closed, it equals the pill, so the
+    /// shape is a plain pill; opening, the head stays put while the body drops out from under it.
+    /// (Animating it from "none" made the head collapse to a sliver and regrow on every open.)
+    var shapeHeadWidth: CGFloat? {
+        guard metrics.hasNotch else { return nil }
+        return max(metrics.closedSize.width, compactWidth + 12)
     }
 
     /// True when a window-local point (flipped, y down) is on the visible island. The transparent
@@ -80,6 +88,8 @@ final class NotchViewModel: ObservableObject {
     var effectivelyHidden: Bool { isHidden || suppressed }
     @Published var paletteVisible = false
     @Published var isDragTargeted = false
+    /// Home is showing its card picker instead of the cards.
+    @Published var homeEditing = false
     @Published var pinnedOpen = false   // e.g. while a sharing sheet is up
     /// True only when the user opened the panel deliberately (click, hotkey, palette).
     /// Hover- and API-opens never take keyboard focus away from the frontmost app.

@@ -208,6 +208,29 @@ final class LocalAPIServer: ObservableObject {
             let mode = ScreenshotManager.Mode(rawValue: req["mode"] as? String ?? "region") ?? .region
             ScreenshotManager.shared.capture(mode)
             return ["ok": true]
+        case "calendar":
+            // {"compose": true} shows the new-event form; {"add": "Title", "start": ISO8601, "minutes": 30} saves one.
+            let c = CalendarManager.shared
+            if let compose = req["compose"] as? Bool { c.composing = compose }
+            if let title = req["add"] as? String {
+                let start = (req["start"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date().addingTimeInterval(3600)
+                let draft = CalendarManager.Draft(title: title, day: start, start: start, minutes: Int(req["minutes"] as? Double ?? 30),
+                                                  allDay: req["allDay"] as? Bool ?? false, location: req["location"] as? String ?? "",
+                                                  targetID: req["calendar"] as? String ?? c.defaultTargetID)
+                Task { @MainActor in if let err = await c.add(draft) { Log.api.error("calendar add failed: \(err, privacy: .public)") } }
+            }
+            return ["ok": true, "composing": c.composing, "today": c.todayEvents.map(\.title),
+                    "calendars": c.targets.map { ["id": $0.id, "name": $0.name, "account": $0.account] }]
+        case "home":
+            if let editing = req["edit"] as? Bool { vm.homeEditing = editing }
+            return ["ok": true, "editing": vm.homeEditing, "cards": Preferences.shared.homeCardList.map(\.rawValue)]
+        case "salah":
+            // {"sync": true} adds the calendar blocks now (when the preference is on).
+            let p = PrayerTimesService.shared
+            if req["alert"] as? Bool == true { p.testAlert() }
+            if req["sync"] as? Bool == true { Task { @MainActor in await p.syncBlocks(force: Demo.active) } }
+            return ["ok": true, "place": p.place, "next": p.next()?.name ?? "", "error": p.error ?? "", "blocked": p.blocked.count,
+                    "times": p.today.map { ["name": $0.name, "time": ISO8601DateFormatter().string(from: $0.date)] }]
         case "meeting":
             switch req["action"] as? String {
             case "test": CalendarManager.shared.testAlert()
@@ -243,7 +266,9 @@ final class LocalAPIServer: ObservableObject {
             view.layoutSubtreeIfNeeded()
             let composed = NSImage(size: view.bounds.size)
             composed.lockFocus()
-            NSColor(calibratedWhite: 0.82, alpha: 1).setFill(); view.bounds.fill()
+            // Keep the canvas transparent, including the island's rounded edges and shadows.
+            NSColor.clear.setFill()
+            view.bounds.fill(using: .copy)
             if req["mode"] as? String == "layer", let layer = view.layer, let ctx = NSGraphicsContext.current?.cgContext {
                 // What is actually composited on screen (layer tree), as opposed to a fresh draw pass.
                 ctx.saveGState(); ctx.translateBy(x: 0, y: view.bounds.height); ctx.scaleBy(x: 1, y: -1)
@@ -256,7 +281,8 @@ final class LocalAPIServer: ObservableObject {
             }
             composed.unlockFocus()
             guard let tiff = composed.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return ["ok": false] }
-            try? png.write(to: URL(fileURLWithPath: path))
+            do { try png.write(to: URL(fileURLWithPath: path)) }
+            catch { return ["ok": false, "error": error.localizedDescription] }
             return ["ok": true, "path": path, "width": view.bounds.width, "height": view.bounds.height, "state": vm.state == .open ? "open" : "closed", "viewFrame": NSStringFromRect(view.frame)]
         case "settings":
             if req["close"] as? Bool == true { SettingsWindowController.shared.close() }

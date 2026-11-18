@@ -179,9 +179,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = ShelfManager.shared
         _ = ScreenshotManager.shared
         _ = CalendarManager.shared
+        PrayerTimesService.shared.refreshIfNeeded()
         _ = AudioDeviceManager.shared
         _ = LockScreenManager.shared
         PrivacyMonitor.shared.start()
+        KeepAwakeManager.shared.startRules()
         DownloadMonitor.shared.applyPreferences()
         if prefs.remindersEnabled { _ = RemindersManager.shared }
     }

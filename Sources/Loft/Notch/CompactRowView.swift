@@ -12,7 +12,19 @@ struct CompactRowView: View {
     @ObservedObject var downloads = DownloadMonitor.shared
     @ObservedObject var audio = AudioDeviceManager.shared
     @ObservedObject var cal = CalendarManager.shared
+    @ObservedObject var salah = PrayerTimesService.shared
     @Environment(\.islandTint) private var tint
+
+    @ObservedObject var weather = WeatherService.shared
+
+    /// What the idle pill cycles through, in order. One item shows on its own; two or more rotate.
+    private var pillItems: [PillRotator.Item] {
+        var items: [PillRotator.Item] = []
+        if prefs.salahEnabled, prefs.salahInPill, salah.next() != nil { items.append(.salah) }
+        if prefs.calendarEnabled, prefs.calendarInPill, PillRotator.nextEvent(cal) != nil { items.append(.event) }
+        if prefs.weatherEnabled, prefs.weatherInPill, weather.snapshot != nil { items.append(.weather) }
+        return items
+    }
 
     var body: some View {
         closedContent
@@ -100,9 +112,15 @@ struct CompactRowView: View {
                                 .font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.green)
                         }
                     }.padding(.horizontal, inset + 2)
-                } else if keepAwake.isActive {
-                    Image(systemName: "cup.and.saucer.fill").font(.system(size: 11)).foregroundStyle(.yellow)
-                        .frame(width: side).padding(.horizontal, inset)
+                } else if downloads.active == nil, keepAwake.isActive || !pillItems.isEmpty {
+                    let items = pillItems
+                    // With info to show, the cup moves to the right side so both sides stay short and even.
+                    if items.isEmpty {
+                        Image(systemName: "cup.and.saucer.fill").font(.system(size: 11)).foregroundStyle(.yellow)
+                            .frame(width: side).padding(.horizontal, inset)
+                    } else {
+                        PillRotator(items: items, height: h).padding(.horizontal, inset + 2)
+                    }
                 } else if let d = downloads.active {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.down.circle").font(.system(size: 11, weight: .semibold)).foregroundStyle(.cyan)
@@ -120,6 +138,16 @@ struct CompactRowView: View {
                         Image(systemName: audio.micMuted ? "mic.slash.fill" : "mic.fill").font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(audio.micMuted ? .red : .white).frame(width: side, height: side)
                     }.buttonStyle(.plain).padding(.horizontal, inset).help(audio.micMuted ? "Unmute microphone" : "Mute microphone")
+                } else if keepAwake.isActive, !pillItems.isEmpty, downloads.active == nil, !(prefs.privacyIndicator && (privacy.micInUse || privacy.cameraInUse)) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "cup.and.saucer.fill").font(.system(size: 11)).foregroundStyle(.yellow)
+                        if prefs.showClockInPill {
+                            TimelineView(.everyMinute) { ctx in
+                                Text(ctx.date.pillTime).font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.white.opacity(0.9))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, inset + 2)
                 } else if prefs.privacyIndicator, privacy.micInUse || privacy.cameraInUse {
                     HStack(spacing: 4) {
                         if privacy.cameraInUse { Circle().fill(.green).frame(width: 7, height: 7) }
@@ -135,6 +163,100 @@ struct CompactRowView: View {
                 }
             }
             .frame(height: h)
+        }
+    }
+}
+
+/// Cycles the idle pill through its info items every few seconds. The slot keeps one width while
+/// rotating so the pill does not resize with every change.
+struct PillRotator: View {
+    enum Item: String { case salah, event, weather }
+    let items: [Item]
+    let height: CGFloat
+    @ObservedObject var cal = CalendarManager.shared
+    @ObservedObject var weather = WeatherService.shared
+    static let interval: TimeInterval = 6
+    static let slotWidth: CGFloat = 104
+
+    /// The next timed event within a day that is not one of the Salah blocks (those have their own item).
+    @MainActor static func nextEvent(_ cal: CalendarManager, at now: Date = Date()) -> MeetingEvent? {
+        cal.events.first { !$0.isAllDay && !$0.canceled && !$0.declined && $0.endDate > now && $0.startDate.timeIntervalSince(now) < 86400 && !PrayerTimesService.isBlock($0) }
+    }
+
+    var body: some View {
+        if items.count == 1 {
+            view(for: items[0])
+        } else {
+            TimelineView(.periodic(from: .now, by: Self.interval)) { ctx in
+                let index = Int(ctx.date.timeIntervalSinceReferenceDate / Self.interval) % items.count
+                ZStack(alignment: .leading) {
+                    view(for: items[index])
+                        .id(items[index])
+                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
+                }
+                .frame(width: Self.slotWidth, height: height, alignment: .leading)
+                .clipped()
+                .animation(.smooth(duration: 0.35), value: index)
+            }
+        }
+    }
+
+    @ViewBuilder private func view(for item: Item) -> some View {
+        switch item {
+        case .salah: SalahPill()
+        case .event: EventPill()
+        case .weather:
+            if let s = weather.snapshot {
+                HStack(spacing: 4) {
+                    Image(systemName: WeatherService.symbol(for: s.code)).symbolRenderingMode(.multicolor).font(.system(size: 10, weight: .semibold))
+                    Text("\(Int(s.temperature.rounded()))°").font(.system(size: 11.5, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.92)).fixedSize()
+                    // One word fits the slot: "Partly cloudy" → "Cloudy", "Light rain" → "Rain".
+                    Text((WeatherService.describe(s.code).split(separator: " ").last.map(String.init) ?? "").capitalized)
+                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.cyan).lineLimit(1).truncationMode(.tail)
+                }
+                .lineLimit(1)
+            }
+        }
+    }
+}
+
+/// Next calendar event beside the notch: title and start time, a countdown in the last hour.
+struct EventPill: View {
+    @ObservedObject var cal = CalendarManager.shared
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 20)) { ctx in
+            if let ev = PillRotator.nextEvent(cal, at: ctx.date) {
+                let minutes = Int((ev.startDate.timeIntervalSince(ctx.date) / 60).rounded(.up))
+                let live = minutes <= 0
+                HStack(spacing: 4) {
+                    Image(systemName: ev.isVideoCall ? "video.fill" : "calendar").font(.system(size: 10, weight: .semibold)).foregroundStyle(.green)
+                    Text(ev.title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.white.opacity(0.92)).lineLimit(1).truncationMode(.tail)
+                    Text(live ? "now" : minutes <= 60 ? "\(minutes)m" : (Calendar.current.isDateInToday(ev.startDate) ? ev.startDate.pillTime : "tmrw"))
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.green).fixedSize()
+                }
+                .help("\(ev.title) at \(ev.startDate.shortTime)")
+            }
+        }
+    }
+}
+
+/// Next prayer beside the notch: its time, switching to a countdown in the last hour.
+struct SalahPill: View {
+    @ObservedObject var salah = PrayerTimesService.shared
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 20)) { ctx in
+            if let p = salah.next(after: ctx.date) {
+                let minutes = max(0, Int((p.date.timeIntervalSince(ctx.date) / 60).rounded(.up)))
+                let soon = minutes <= 15
+                HStack(spacing: 4) {
+                    Image(systemName: p.symbol).font(.system(size: 10, weight: .semibold)).foregroundStyle(soon ? .orange : .teal)
+                    Text(p.name).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.white.opacity(0.92))
+                    Text(minutes <= 60 ? "\(minutes)m" : p.date.pillTime)
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(soon ? .orange : .teal)
+                }
+                .lineLimit(1).fixedSize()
+                .help("\(p.name) at \(p.date.shortTime)")
+            }
         }
     }
 }

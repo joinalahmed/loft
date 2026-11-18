@@ -178,6 +178,7 @@ struct FeatureSettings: View {
             Toggle("Camera mirror", isOn: $prefs.mirrorEnabled)
             Toggle("Weather", isOn: $prefs.weatherEnabled)
             Toggle("World clock", isOn: $prefs.worldClockEnabled)
+            Toggle("Salah times", isOn: $prefs.salahEnabled)
         }
         SettingsSection(title: "Weather") {
             HStack { Text("City"); TextField("Lisbon", text: $prefs.weatherCity).frame(width: 220).onSubmit { WeatherService.shared.refreshIfNeeded(force: true) } }
@@ -210,6 +211,7 @@ struct FeatureSettings: View {
             }.frame(width: 300)
             Toggle("Allow the display to sleep (keep only the system awake)", isOn: $prefs.keepAwakeAllowDisplaySleep)
         }
+        KeepAwakeRulesSettings()
         SettingsSection(title: "Battery") {
             Toggle("Show charger and low-battery islands", isOn: $prefs.batteryAlerts)
             Stepper("Low battery warning at \(prefs.batteryLowLevel)%", value: $prefs.batteryLowLevel, in: 5...50, step: 5)
@@ -230,6 +232,45 @@ struct FeatureSettings: View {
             Picker("Web search engine", selection: $prefs.searchEngine) {
                 Text("Google").tag("google"); Text("DuckDuckGo").tag("duckduckgo"); Text("Bing").tag("bing"); Text("Perplexity").tag("perplexity")
             }.frame(width: 300)
+        }
+    }
+}
+
+/// Rules that switch keep-awake on by themselves and off again when they stop applying.
+struct KeepAwakeRulesSettings: View {
+    @ObservedObject var prefs = Preferences.shared
+
+    private func name(for bundleID: String) -> String {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) { return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "") }
+        return bundleID
+    }
+    private var candidates: [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil && $0.bundleIdentifier != Bundle.main.bundleIdentifier && !prefs.keepAwakeApps.contains($0.bundleIdentifier!) }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+    }
+
+    var body: some View {
+        SettingsSection(title: "Keep-awake rules", footer: "A rule turns keep-awake on by itself and off again when it no longer applies. If you turn it off by hand while a rule applies, it stays off until the rule ends.") {
+            Toggle("During meetings and calls", isOn: $prefs.keepAwakeDuringMeetings)
+                .onChange(of: prefs.keepAwakeDuringMeetings) { _, _ in KeepAwakeManager.shared.evaluateRules() }
+            ForEach(prefs.keepAwakeApps, id: \.self) { id in
+                HStack {
+                    Image(systemName: "app").foregroundStyle(.secondary)
+                    Text("While \(name(for: id)) is open")
+                    Spacer()
+                    Button { prefs.keepAwakeApps.removeAll { $0 == id }; KeepAwakeManager.shared.evaluateRules() } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).help("Remove this rule")
+                }
+            }
+            Menu("Add an app that is running now…") {
+                ForEach(candidates, id: \.processIdentifier) { app in
+                    Button(app.localizedName ?? app.bundleIdentifier ?? "App") {
+                        if let id = app.bundleIdentifier { prefs.keepAwakeApps.append(id); KeepAwakeManager.shared.evaluateRules() }
+                    }
+                }
+            }
+            .frame(width: 260)
         }
     }
 }

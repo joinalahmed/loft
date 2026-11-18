@@ -47,6 +47,7 @@ enum Demo {
             daily: (0..<5).map { WeatherSnapshot.Day(date: f.string(from: cal.date(byAdding: .day, value: $0, to: now)!), hi: [19, 21, 20, 17, 18][$0], lo: [12, 13, 13, 11, 12][$0], code: [2, 0, 1, 61, 3][$0]) },
             fetchedAt: now))
 
+        PrayerTimesService.shared.injectDemo()
         WorldClockStore.shared.injectDemo(["Europe/London", "America/New_York", "Asia/Tokyo"])
         KeepAwakeManager.shared.acquire(minutes: 60)
     }

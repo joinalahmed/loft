@@ -13,13 +13,17 @@ final class GoogleCalendarService: ObservableObject {
     static let shared = GoogleCalendarService()
     @Published private(set) var events: [MeetingEvent] = []
     @Published private(set) var calendars: [GoogleCalendar] = []
-    @Published private(set) var isConnected = false
+    /// Remembered outside the keychain so launch never waits on a keychain prompt.
+    @Published private(set) var isConnected = false { didSet { UserDefaults.standard.set(isConnected, forKey: "googleConnected") } }
     @Published private(set) var isConnecting = false
     @Published private(set) var lastError: String?
     @Published private(set) var lastSync: Date?
     @Published var accountEmail: String { didSet { UserDefaults.standard.set(accountEmail, forKey: "googleAccountEmail") } }
 
-    struct GoogleCalendar: Identifiable, Equatable { let id: String; let name: String; let color: Color; let primary: Bool }
+    /// True once the user has granted the event-editing scope (older connections are read-only).
+    @Published private(set) var canWrite: Bool { didSet { UserDefaults.standard.set(canWrite, forKey: "googleCanWrite") } }
+
+    struct GoogleCalendar: Identifiable, Equatable { let id: String; let name: String; let color: Color; let primary: Bool; var writable = false }
 
     private var accessToken: String?
     private var accessExpiry = Date.distantPast
@@ -27,7 +31,7 @@ final class GoogleCalendarService: ObservableObject {
     private var pendingVerifier = ""
     private var pendingState = ""
     private var refreshTimer: Timer?
-    private let scopes = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email"
+    private let scopes = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"
     private var prefs: Preferences { Preferences.shared }
 
     /// The pasted value often carries duplicates, newlines or a label; keep only the first real ID.
@@ -45,7 +49,10 @@ final class GoogleCalendarService: ObservableObject {
 
     private init() {
         accountEmail = UserDefaults.standard.string(forKey: "googleAccountEmail") ?? ""
-        isConnected = Keychain.get("google.refreshToken") != nil
+        let d = UserDefaults.standard
+        let connected = d.object(forKey: "googleConnected") != nil ? d.bool(forKey: "googleConnected") : !(d.string(forKey: "googleAccountEmail") ?? "").isEmpty
+        canWrite = connected && UserDefaults.standard.bool(forKey: "googleCanWrite")
+        isConnected = connected
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in Task { @MainActor in self?.sync() } }
         if isConnected { sync() }
     }
@@ -123,10 +130,13 @@ final class GoogleCalendarService: ObservableObject {
         guard let obj = await Self.post("https://oauth2.googleapis.com/token", form: form) else { isConnecting = false; lastError = "Token exchange failed."; return }
         if let err = obj["error_description"] as? String ?? obj["error"] as? String { isConnecting = false; lastError = err; return }
         guard let access = obj["access_token"] as? String else { isConnecting = false; lastError = "No access token."; return }
-        if let refresh = obj["refresh_token"] as? String { Keychain.set(refresh, for: "google.refreshToken") }
+        if let refresh = obj["refresh_token"] as? String { await Keychain.setAsync(refresh, for: "google.refreshToken") }
         accessToken = access
         accessExpiry = Date().addingTimeInterval((obj["expires_in"] as? Double ?? 3600) - 60)
         isConnected = true; isConnecting = false
+        // Google lets the user untick individual permissions, so trust only what was granted.
+        let granted = (obj["scope"] as? String ?? "").split(separator: " ")
+        canWrite = granted.contains { $0.hasSuffix("/auth/calendar.events") || $0.hasSuffix("/auth/calendar") }
         if let info = await Self.get("https://www.googleapis.com/oauth2/v3/userinfo", token: access), let email = info["email"] as? String { accountEmail = email }
         sync()
         NotchViewModel.shared.show(message: IslandMessage(title: "Google Calendar connected", subtitle: accountEmail, symbol: "calendar.badge.checkmark", tint: .green), duration: 4)
@@ -135,19 +145,34 @@ final class GoogleCalendarService: ObservableObject {
     private var redirectPort: UInt16 = 0
 
     func disconnect() {
-        if let t = Keychain.get("google.refreshToken") {
-            Task { _ = await Self.post("https://oauth2.googleapis.com/revoke", form: ["token": t]) }
+        Task.detached {
+            if let t = Keychain.get("google.refreshToken") { _ = await Self.post("https://oauth2.googleapis.com/revoke", form: ["token": t]) }
+            Keychain.delete("google.refreshToken")
         }
-        Keychain.delete("google.refreshToken")
-        accessToken = nil; isConnected = false; events = []; calendars = []; accountEmail = ""; lastSync = nil
+        accessToken = nil; isConnected = false; canWrite = false; events = []; calendars = []; accountEmail = ""; lastSync = nil
         CalendarManager.shared.mergeSources()
     }
 
     // MARK: Sync
 
+    private var tokenTask: Task<String?, Never>?
+
+    /// One refresh at a time, so several callers at launch cause at most one keychain prompt.
     private func validToken() async -> String? {
         if let t = accessToken, Date() < accessExpiry { return t }
-        guard let refresh = Keychain.get("google.refreshToken") else { return nil }
+        if let task = tokenTask { return await task.value }
+        let task = Task { await self.refreshAccessToken() }
+        tokenTask = task
+        let token = await task.value
+        tokenTask = nil
+        return token
+    }
+
+    private func refreshAccessToken() async -> String? {
+        guard let refresh = await Keychain.getAsync("google.refreshToken") else {
+            lastError = "Loft could not read the Google sign-in from the keychain. Allow access, or reconnect in Settings."
+            return nil
+        }
         var form = ["refresh_token": refresh, "client_id": clientID, "grant_type": "refresh_token"]
         let secret = clientSecret
         if !secret.isEmpty { form["client_secret"] = secret }
@@ -169,7 +194,8 @@ final class GoogleCalendarService: ObservableObject {
             let cals = items.compactMap { c -> GoogleCalendar? in
                 guard let id = c["id"] as? String, c["selected"] as? Bool ?? true, c["hidden"] as? Bool != true else { return nil }
                 return GoogleCalendar(id: id, name: c["summaryOverride"] as? String ?? c["summary"] as? String ?? id,
-                                      color: Color(hex: c["backgroundColor"] as? String ?? "#4285F4") ?? .blue, primary: c["primary"] as? Bool ?? false)
+                                      color: Color(hex: c["backgroundColor"] as? String ?? "#4285F4") ?? .blue, primary: c["primary"] as? Bool ?? false,
+                                      writable: ["owner", "writer"].contains(c["accessRole"] as? String ?? ""))
             }
             let dayStart = Calendar.current.startOfDay(for: Date())
             let dayEnd = Calendar.current.date(byAdding: .day, value: 2, to: dayStart)!
@@ -221,7 +247,55 @@ final class GoogleCalendarService: ObservableObject {
         return MeetingEvent(id: "g:" + id, title: e["summary"] as? String ?? "(No title)", startDate: s, endDate: en, isAllDay: allDay,
                             location: e["location"] as? String, notes: e["description"] as? String, url: url,
                             calendarTitle: calendar.name, color: calendar.color, attendeeCount: attendees.count,
-                            declined: declined, canceled: e["status"] as? String == "cancelled", source: .google)
+                            declined: declined, canceled: e["status"] as? String == "cancelled", source: .google,
+                            calendarID: calendar.id, editable: calendar.writable)
+    }
+
+    // MARK: Writing
+
+    private static func eventsURL(_ calendarID: String, event: String? = nil) -> String {
+        var allowed = CharacterSet.urlPathAllowed; allowed.remove(charactersIn: "/")
+        let enc = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s }
+        return "https://www.googleapis.com/calendar/v3/calendars/\(enc(calendarID))/events" + (event.map { "/" + enc($0) } ?? "")
+    }
+
+    /// Creates an event; returns an error message, or nil on success.
+    func createEvent(title: String, start: Date, end: Date, allDay: Bool, location: String?, calendarID: String) async -> String? {
+        guard canWrite, let token = await validToken() else { return "Reconnect Google to allow adding events." }
+        var body: [String: Any] = ["summary": title]
+        if let location, !location.isEmpty { body["location"] = location }
+        if allDay {
+            let day = DateFormatter(); day.dateFormat = "yyyy-MM-dd"; day.timeZone = .current; day.locale = Locale(identifier: "en_US_POSIX")
+            let cal = Calendar.current
+            body["start"] = ["date": day.string(from: start)]
+            body["end"] = ["date": day.string(from: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: end))!)]   // exclusive
+        } else {
+            let iso = ISO8601DateFormatter()
+            body["start"] = ["dateTime": iso.string(from: start), "timeZone": TimeZone.current.identifier]
+            body["end"] = ["dateTime": iso.string(from: end), "timeZone": TimeZone.current.identifier]
+        }
+        return await write("POST", Self.eventsURL(calendarID), token: token, json: body)
+    }
+
+    /// Deletes one event (a single occurrence when it repeats); returns an error message, or nil.
+    func deleteEvent(_ ev: MeetingEvent) async -> String? {
+        guard ev.source == .google, let calendarID = ev.calendarID else { return "This event cannot be deleted from Loft." }
+        guard canWrite, let token = await validToken() else { return "Reconnect Google to allow editing events." }
+        return await write("DELETE", Self.eventsURL(calendarID, event: String(ev.id.dropFirst(2))), token: token, json: nil)
+    }
+
+    private func write(_ method: String, _ url: String, token: String, json: [String: Any]?) async -> String? {
+        var req = URLRequest(url: URL(string: url)!); req.httpMethod = method
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let json { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try? JSONSerialization.data(withJSONObject: json) }
+        guard let (data, resp) = try? await URLSession.shared.data(for: req), let code = (resp as? HTTPURLResponse)?.statusCode else { return "Could not reach Google Calendar." }
+        if (200..<300).contains(code) || (method == "DELETE" && code == 410) { return nil }
+        let message = ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any])?["message"] as? String
+        if code == 403, message?.localizedCaseInsensitiveContains("scope") == true || message?.localizedCaseInsensitiveContains("insufficient") == true {
+            canWrite = false
+            return "Google has not granted Loft permission to edit events. Reconnect to allow it."
+        }
+        return message ?? "Google Calendar returned an error (\(code))."
     }
 
     // MARK: HTTP

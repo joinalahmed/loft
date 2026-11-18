@@ -22,5 +22,14 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp -R Vendor/mediaremote-adapter/MediaRemoteAdapter.framework "$APP/Contents/Frameworks/"
 cp Vendor/mediaremote-adapter/mediaremote-adapter.pl "$APP/Contents/Resources/"
 echo -n 'APPL????' > "$APP/Contents/PkgInfo"
-codesign --force --deep --sign - --identifier dev.joinal.loft "$APP" 2>&1 | grep -v 'replacing existing signature' || true
+# Local builds are signed with a fixed self-signed identity when one is installed, so macOS sees
+# the same app on every rebuild (keychain "Always Allow" and privacy grants stick). Releases, and
+# machines without the identity, use an ad-hoc signature. LOFT_ADHOC=1 forces ad-hoc.
+IDENTITY="-"
+if [[ "${LOFT_ADHOC:-0}" != "1" ]] && security find-identity -p codesigning 2>/dev/null | grep -q '"Loft Local Signing"'; then
+  IDENTITY="Loft Local Signing"
+fi
+codesign --force --deep --sign "$IDENTITY" --identifier dev.joinal.loft "$APP" 2>&1 | grep -v 'replacing existing signature' || true
+codesign --verify --deep --strict "$APP" 2>/dev/null || { echo "signing with '$IDENTITY' failed; falling back to ad-hoc"; codesign --force --deep --sign - --identifier dev.joinal.loft "$APP"; IDENTITY="-"; }
+echo "   signed: $([[ "$IDENTITY" == "-" ]] && echo ad-hoc || echo "$IDENTITY")"
 echo "✔ $APP"

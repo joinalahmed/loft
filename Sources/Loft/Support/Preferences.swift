@@ -65,7 +65,7 @@ struct AnyEncodable: Encodable {
 }
 
 enum PanelTab: String, CaseIterable, Codable, Identifiable {
-    case home, music, shelf, clipboard, timer, calendar, reminders, notes, terminal, launcher, stocks, system, mirror, weather, worldClock
+    case home, music, shelf, clipboard, timer, calendar, reminders, notes, terminal, launcher, stocks, system, mirror, weather, worldClock, salah
     var id: String { rawValue }
 
     var title: String {
@@ -85,6 +85,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .mirror: "Mirror"
         case .weather: "Weather"
         case .worldClock: "World Clock"
+        case .salah: "Salah"
         }
     }
 
@@ -105,6 +106,7 @@ enum PanelTab: String, CaseIterable, Codable, Identifiable {
         case .mirror: "web.camera.fill"
         case .weather: "cloud.sun.fill"
         case .worldClock: "globe.europe.africa.fill"
+        case .salah: "moon.stars.fill"
         }
     }
 }
@@ -181,6 +183,19 @@ final class Preferences: ObservableObject {
     @Stored("lyricsEnabled") var lyricsEnabled = true
     @Stored("terminalEnabled") var terminalEnabled = true
     @Stored("worldClockEnabled") var worldClockEnabled = true
+    @Stored("salahEnabled") var salahEnabled = true
+    @Stored("salahCity") var salahCity = ""                 // empty = use the weather city
+    @Stored("salahMethod") var salahMethod = "UmmAlQura"
+    @Stored("salahMadhab") var salahMadhab = "Shafi"
+    @Stored("salahCalendarBlocks") var salahCalendarBlocks = false
+    @Stored("salahCalendarTarget") var salahCalendarTarget = ""
+    @Stored("salahFullScreenAlert") var salahFullScreenAlert = true
+    @Stored("salahInPill") var salahInPill = true
+    @Stored("calendarInPill") var calendarInPill = true
+    @Stored("weatherInPill") var weatherInPill = true
+    @Stored("homeCards") var homeCards: [String] = []        // shown cards in order; empty = the default set
+    @Stored("keepAwakeDuringMeetings") var keepAwakeDuringMeetings = false
+    @Stored("keepAwakeApps") var keepAwakeApps: [String] = []   // bundle ids that hold the Mac awake while running
     @Stored("headerPalette") var headerPalette = true
     @Stored("headerLock") var headerLock = false
     @Stored("pauseMusicOnLock") var pauseMusicOnLock = true
@@ -275,6 +290,7 @@ final class Preferences: ObservableObject {
         case .mirror: mirrorEnabled = enabled
         case .weather: weatherEnabled = enabled
         case .worldClock: worldClockEnabled = enabled
+        case .salah: salahEnabled = enabled
         }
     }
 
@@ -296,6 +312,7 @@ final class Preferences: ObservableObject {
             case .mirror: mirrorEnabled
             case .weather: weatherEnabled
             case .worldClock: worldClockEnabled
+            case .salah: salahEnabled
             }
         }
     }

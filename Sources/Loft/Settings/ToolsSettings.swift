@@ -44,6 +44,33 @@ struct ToolsSettings: View {
             .frame(height: CGFloat(PanelTab.allCases.count) * 29 + 12)
         }
 
+        SettingsSection(title: "Home cards", footer: "Switch on the cards you want and drag them into order. Home shows as many as fit, from the top; a card whose tool is switched off is skipped. Right-click a card on Home to hide it.") {
+            List {
+                ForEach(prefs.allHomeCards) { card in
+                    HStack(spacing: 10) {
+                        Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).font(.system(size: 11))
+                        Image(systemName: card.symbol).frame(width: 18).foregroundStyle(.secondary)
+                        Text(card.title)
+                        if !card.isAvailable(prefs) { Text("tool is off").font(.system(size: 10)).foregroundStyle(.tertiary) }
+                        Spacer()
+                        Toggle("", isOn: Binding(get: { prefs.homeCardList.contains(card) }, set: { prefs.setHomeCard(card, shown: $0) }))
+                            .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                    }
+                    .padding(.vertical, 1)
+                }
+                .onMove { from, to in
+                    var order = prefs.allHomeCards
+                    let shown = Set(prefs.homeCardList)
+                    order.move(fromOffsets: from, toOffset: to)
+                    prefs.setHomeCards(order.filter { shown.contains($0) })
+                }
+            }
+            .listStyle(.plain)
+            .scrollDisabled(true)
+            .frame(height: CGFloat(HomeCard.allCases.count) * 29 + 12)
+            Button("Reset to default") { prefs.homeCards = [] }.controlSize(.small)
+        }
+
         SettingsSection(title: "Header buttons") {
             toolToggle("Command palette", "⌘K inside the panel, ⌃⌥K anywhere", "command", $prefs.headerPalette)
             toolToggle("Screenshot", "Region capture; right-click for window, full screen, OCR, colour picker", "camera.viewfinder", $prefs.headerScreenshot)
@@ -74,6 +101,10 @@ struct ToolsSettings: View {
             toolToggle("Mic / camera privacy dots", "Orange mic, green camera", "mic", $prefs.privacyIndicator)
             toolToggle("Call island", "Timer and mute button during calls", "phone", $prefs.callIsland)
             toolToggle("Download progress", "Watches ~/Downloads (asks for access)", "arrow.down.circle", $prefs.downloadsEnabled)
+            toolToggle("Next prayer in the pill", "Name and time beside the notch; a countdown in the last hour", "moon.stars", $prefs.salahInPill)
+            toolToggle("Next event in the pill", "Title and start time; rotates with the other pill items every few seconds", "calendar", $prefs.calendarInPill)
+            toolToggle("Weather in the pill", "Temperature and conditions, in the same rotation", "cloud.sun", $prefs.weatherInPill)
+            toolToggle("Prayer-time alert full screen", "With an ayah to read or listen to", "moon.haze", $prefs.salahFullScreenAlert)
             toolToggle("Clock in the pill", "When nothing else is showing", "clock", $prefs.showClockInPill)
             toolToggle("Lyrics button", "Synced lyrics from LRCLIB in the Music tab", "quote.bubble", $prefs.lyricsEnabled)
         }

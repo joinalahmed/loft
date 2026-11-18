@@ -44,7 +44,7 @@ final class LockScreenManager: ObservableObject {
         isLocked = true
         lockedAt = Date()
         if prefs.pauseMusicOnLock, MusicManager.shared.isPlaying { MusicManager.shared.pause(); pausedMusicForLock = true }
-        if prefs.releaseKeepAwakeOnLock, KeepAwakeManager.shared.isActive { KeepAwakeManager.shared.release(reason: "screen locked") }
+        if prefs.releaseKeepAwakeOnLock, KeepAwakeManager.shared.isActive { KeepAwakeManager.shared.release(reason: "screen locked", byUser: false) }
         if prefs.lockScreenWidgets { showWidgets() }
     }
 

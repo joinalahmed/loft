@@ -27,7 +27,7 @@ struct NotchShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        if let hw = headWidth, hw < rect.width - 8, headHeight > 0, rect.height > headHeight + 8 {
+        if let hw = headWidth, hw < rect.width - 2, headHeight > 0, rect.height > headHeight + 2 {
             return hangingPath(in: rect, headWidth: hw)
         }
         var p = Path()
